@@ -2519,7 +2519,7 @@
 
 end subroutine cm1_init
 
-subroutine cm1_timestep(nsteps)
+subroutine cm1_timestep(nsteps,time_out)
 
 !-----------------------------------------------------------------------------
 !
@@ -2571,6 +2571,7 @@ subroutine cm1_timestep(nsteps)
       use mpi
 #endif
       integer :: ntst, nsteps
+      real :: time_out
       ntst=0
       outfile=166
     !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c!
@@ -3686,7 +3687,8 @@ subroutine cm1_timestep(nsteps)
       restarted = .false.
 
 
-    ENDDO  timeloop
+      ENDDO  timeloop
+      time_out=mtime
     !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c!
 
 

@@ -22,9 +22,10 @@ subroutine pycm1_init(ibo,ieo,jbo,jeo,kbo,keo,&
   numqo=numq
 end subroutine pycm1_init
 
-subroutine pytimestep(nsteps)
+subroutine pytimestep(nsteps,time_out)
   integer :: nsteps
-  call cm1_timestep(nsteps)
+  real, intent(out) :: time_out
+  call cm1_timestep(nsteps,time_out)
 end subroutine pytimestep
 
 
