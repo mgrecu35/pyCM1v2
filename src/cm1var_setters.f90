@@ -62,6 +62,38 @@ real, intent(in) :: pp3d_in(ibmo:iemo,jbmo:jemo,kbmo:kemo)
 pp3d=pp3d_in
 end subroutine set_pp3d
 !------------------
+subroutine set_prs(ibmo,iemo,jbmo,jemo,kbmo,kemo,prs_in)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(in) :: prs_in(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+prs=prs_in
+end subroutine set_prs
+!------------------
+subroutine set_rho(ibmo,iemo,jbmo,jemo,kbmo,kemo,rho_in)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(in) :: rho_in(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+rho=rho_in
+end subroutine set_rho
+!------------------
+subroutine set_th0(ibmo,iemo,jbmo,jemo,kbmo,kemo,th0_in)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(in) :: th0_in(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+th0=th0_in
+end subroutine set_th0
+!------------------
+subroutine set_pi0(ibmo,iemo,jbmo,jemo,kbmo,kemo,pi0_in)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(in) :: pi0_in(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+pi0=pi0_in
+end subroutine set_pi0
+!------------------
 !---------Getters--------
 subroutine get_u3d(ibmo,iemo,jbmo,jemo,kbmo,kemo,u3d_out)
 use cm1vars
@@ -126,4 +158,36 @@ integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
 real, intent(out) :: pp3d_out(ibmo:iemo,jbmo:jemo,kbmo:kemo)
 pp3d_out=pp3d
 end subroutine get_pp3d
+!------------------
+subroutine get_prs(ibmo,iemo,jbmo,jemo,kbmo,kemo,prs_out)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(out) :: prs_out(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+prs_out=prs
+end subroutine get_prs
+!------------------
+subroutine get_rho(ibmo,iemo,jbmo,jemo,kbmo,kemo,rho_out)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(out) :: rho_out(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+rho_out=rho
+end subroutine get_rho
+!------------------
+subroutine get_th0(ibmo,iemo,jbmo,jemo,kbmo,kemo,th0_out)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(out) :: th0_out(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+th0_out=th0
+end subroutine get_th0
+!------------------
+subroutine get_pi0(ibmo,iemo,jbmo,jemo,kbmo,kemo,pi0_out)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(out) :: pi0_out(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+pi0_out=pi0
+end subroutine get_pi0
 !------------------

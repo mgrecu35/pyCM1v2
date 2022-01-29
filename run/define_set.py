@@ -41,7 +41,9 @@ code=write_sub(var_def)
 vars_def=['u3d(ib:ie+1,jb:je,kb:ke)','v3d(ib:ie,jb:je+1,kb:ke)',\
           'w3d(ib:ie,jb:je,kb:ke+1)','ua(ib:ie+1,jb:je,kb:ke)',\
           'va(ib:ie,jb:je+1,kb:ke)','wa(ib:ie,jb:je,kb:ke+1)',\
-          'ppi(ib:ie,jb:je,kb:ke)','pp3d(ib:ie,jb:je,kb:ke)']
+          'ppi(ib:ie,jb:je,kb:ke)','pp3d(ib:ie,jb:je,kb:ke)',\
+          'prs(ib:ie,jb:je,kb:ke)','rho(ib:ie,jb:je,kb:ke)',\
+          'th0(ib:ie,jb:je,kb:ke)','pi0(ib:ie,jb:je,kb:ke)']
 
 #'tha(ib:ie,jb:je,kb:ke)','th3d(ib:ie,jb:je,kb:ke)'
 from define_set import *
