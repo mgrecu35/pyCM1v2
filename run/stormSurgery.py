@@ -60,7 +60,11 @@ th_new=(fh['th'][0,:nz,j0:j0+ny,i0:i0+nx]).T
 tk_new=th_new*(p_new)
 rd=287.0
 rho_new=prs_new/(rd*tk_new)
+dbz=(fh['dbz'][0,:nz,j0:j0+ny,i0:i0+nx])
 qv_new=(fh['qv'][0,:nz,j0:j0+ny,i0:i0+nx])
+a=np.nonzero(dbz[0,:,:]<0)
+for i1,i2 in zip(a[0],a[1]):
+    qv_new[0:12,i1,i2]*=0.9
 qr_new=(fh['qr'][0,:nz,j0:j0+ny,i0:i0+nx])
 qc_new=(fh['qc'][0,:nz,j0:j0+ny,i0:i0+nx])
 qi_new=(fh['qi'][0,:nz,j0:j0+ny,i0:i0+nx])
@@ -88,6 +92,8 @@ pp3d_in[3:-3,3:-3,1:-1]=p_new-pi0_in[3:-3,3:-3,1:-1]
 prs_in[3:-3,3:-3,1:-1]=prs_new
 rho_in[3:-3,3:-3,1:-1]=rho_new
 set_var3d_q(q3d_in,q_new,ipert)
+u3d_in-=0
+v3d_in-=10
 cm1.set_u3d(ib,ie,jb,je,kb,ke,u3d_in)
 cm1.set_ua(ib,ie,jb,je,kb,ke,u3d_in)
 cm1.set_v3d(ib,ie,jb,je,kb,ke,v3d_in)
@@ -105,6 +111,6 @@ cm1.set_rho(ib,ie,jb,je,kb,ke,rho_in)
 
 
 #stop
-for i in range(100):
+for i in range(120):
     m_time=cm1.pytimestep(10)
     print(m_time)
