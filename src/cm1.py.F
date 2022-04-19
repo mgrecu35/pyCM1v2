@@ -2678,7 +2678,7 @@ subroutine cm1_timestep(nsteps,time_out)
           endif
         ENDIF
 
-        dotbud = .false.
+        !dotbud = .false.
         doqbud = .false.
         doubud = .false.
         dovbud = .false.

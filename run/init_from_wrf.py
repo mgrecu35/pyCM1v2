@@ -29,8 +29,8 @@ w=fh["W"][nx1:nx2,ny1:ny2,:]
 u=fh["U"][nx1:nx2,ny1:ny2,:]
 v=fh["V"][nx1:nx2,ny1:ny2,:]
 qh=fh["QICE"][nx1:nx2,ny1:ny2,:]
-qs=fh["QSNOW"][nx1:nx2,ny1:ny2,:]*0.85
-qg=fh["QGRAUP"][nx1:nx2,ny1:ny2,:]*0.85
+qs=fh["QSNOW"][nx1:nx2,ny1:ny2,:]*0.9
+qg=fh["QGRAUP"][nx1:nx2,ny1:ny2,:]*0.9
 ph=fh["PH"][nx1:nx2,ny1:ny2,:]+fh["PHB"][nx1:nx2,ny1:ny2,:]
 zh=ph/9.81e3
 press=fh["P"][nx1:nx2,ny1:ny2,:]+fh["PB"][nx1:nx2,ny1:ny2,:]
@@ -48,10 +48,10 @@ from netCDF4 import Dataset
 rho=cm1.get_rho(ib,ie,jb,je,kb,ke)
 
 tha0 = cm1.get_tha(ib,ie,jb,je,kb,ke)
-u0 = cm1.get_ua(ib,ie,jb,je,kb,ke)
-v0 = cm1.get_va(ib,ie,jb,je,kb,ke)
+u0 = cm1.get_ua(ib,ie,jb,je,kb,ke)*0
+v0 = cm1.get_va(ib,ie,jb,je,kb,ke)*0
 w0 = cm1.get_wa(ib,ie,jb,je,kb,ke)
-q0 = cm1.get_qa(ibm,iem,jbm,jem,kbm,kem,numq)
+q0 = cm1.get_qa(ibm,iem,jbm,jem,kbm,kem,numq)*0.8
 pp3d0=cm1.get_pp3d(ib,ie,jb,je,kb,ke)
 
 nx=150
@@ -65,12 +65,13 @@ for i in range(nx):
         um+=np.interp(h,zh[i,j,:],u[i,j,:])/nz/ny
         vm+=np.interp(h,zh[i,j,:],v[i,j,:])/nz/ny
 ic=0
-for i in range(1,nx+5):
-    for j in range(1,ny+5):
-        u0[i,j,1:nz+1]+=(np.interp(h,zh[i,j,:],u[i,j,:])-um)-5
-        v0[i,j,1:nz+1]+=(np.interp(h,zh[i,j,:],v[i,j,:])-vm)-10
+for i in range(3,nx+3):
+    for j in range(3,ny+3):
+        u0[i,j,1:nz+1]+=(np.interp(h,zh[i,j,:],u[i,j,:])-um)
+        v0[i,j,1:nz+1]+=(np.interp(h,zh[i,j,:],v[i,j,:])-vm)
         w0[i,j,1:nz+1]=np.interp(h,zh[i,j,:],w[i,j,:])
         q0[i,j,1:nz+1,0]=np.interp(h,zh[i,j,:],qv[i,j,:])
+        q0[i,j,1:30,0]*=0.9
         q0[i,j,1:nz+1,2]=np.interp(h,zh[i,j,:],qr[i,j,:])
         q0[i,j,1:nz+1,8]=np.interp(h,zh[i,j,:],qnr[i,j,:])
         q0[i,j,1:nz+1,7]=np.interp(h,zh[i,j,:],qns[i,j,:])
@@ -84,8 +85,8 @@ for i in range(1,nx+5):
         ic+=1
 pp3d0m/=ic
 thm/=ic
-for i in range(1,nx+5):
-    for j in range(1,ny+5):
+for i in range(3,nx+3):
+    for j in range(3,ny+3):
         pp3d0[i,j,1:nz+1]-=pp3d0m
         tha0[i,j,1:nz+1]-=thm
 
@@ -103,8 +104,8 @@ cm1.set_q3d(ib,ie,jb,je,kb,ke,q0)
 cm1.set_qa(ib,ie,jb,je,kb,ke,q0)
 
 m_time=0
-while m_time<900:
-    m_time=cm1.pytimestep(1)
+while m_time<1200:
+    m_time=cm1.pytimestep(10)
 
 q3d = cm1.get_q3d(ibm,iem,jbm,jem,kbm,kem,numq)
 qtot=q3d[:,:,:,2]+q3d[:,:,:,4]+q3d[:,:,:,5]

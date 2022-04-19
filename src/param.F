@@ -7503,7 +7503,8 @@
         nk1 = nint( str_bot/dz_bot )
         nk3 = nint( (ztop-str_top)/dz_top )
         nk2 = nk-(nk1+nk3)
-
+        print*, 'str_bot=',str_bot, nominal_dz, dz_bot, dz_top
+        print*, 'nk1=',nk1, nk2, nk3
         ! dummy checks:
         if(dowr) write(outfile,*) '  bot: ',nk1*dz_bot,str_bot,nk1*dz_bot-str_bot
         if( abs(nk1*dz_bot-str_bot).gt.0.01 )then
