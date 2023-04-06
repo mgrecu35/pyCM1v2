@@ -18,7 +18,7 @@
 
 
              subroutine writeout(srec,urec,vrec,wrec,mrec,rtime,dt,fnum,nwrite,qname,qunit,    &
-                        nstep,mtime,adt,ndt,                                                   &
+                        nstep,mtime,adt,ndt,domainlocx,domainlocy,                             &
                         name_output,desc_output,unit_output,grid_output,cmpr_output,           &
                         xh,xf,uf,yh,yf,vf,xfref,yfref,                                         &
                         rds,sigma,rdsf,sigmaf,zh,zf,mf,gx,gy,wprof,                            &
@@ -26,14 +26,14 @@
                         zs,rgzu,rgzv,rain,sws,svs,sps,srs,sgs,sus,shs,thflux,qvflux,psfc,      &
                         rxh,arh1,arh2,uh,ruh,rxf,arf1,arf2,vh,rvh,mh,rmh,rmf,rr,rf,            &
                         gz,rgz,gzu,gzv,gxu,gyv,dzdx,dzdy,c1,c2,                                &
-                        cd,ch,cq,tlh,f2d,psmth,prate,ustt,                                     &
+                        cd,ch,cq,tlh,f2d,psmth,prate,ustt,cm0,                                 &
                         dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,dum9,                          &
                         t11,t12,t13,t22,t23,t33,rho,prs,divx,                                  &
                         rru,ua ,dumu,ugr  ,rrv,va ,dumv,vgr  ,rrw,wa ,dumw,ppi ,tha ,phi2,     &
                         sadv,thten,nm,defv,defh,lenscl,dissten,epst,epsd1,epsd2,               &
                         thpten,qvpten,qcpten,qipten,upten,vpten,qnipten,qncpten,xkzh,xkzq,xkzm, &
                         lu_index,xland,mavail,tsk,tmn,tml,hml,huml,hvml,hfx,qfx,gsw,glw,tslb,  &
-                        qa ,p3a,p3o,kmh,kmv,khh,khv,tkea ,swten,lwten,cldfra,                  &
+                        qa ,p3a,p3o,kmh,kmv,khh,khv,cme,tkea ,swten,lwten,cldfra,              &
                         radsw,rnflx,radswnet,radlwin,dsr,olr,pta,                              &
                         effc,effi,effs,effr,effg,effis,                                        &
                         lwupt,lwdnt,lwupb,lwdnb,                                               &
@@ -47,8 +47,8 @@
                         edmf_a,edmf_w,edmf_qt,edmf_thl,edmf_ent,edmf_qc,                       &
                         vdfg,maxmf,nupdraft,ktop_plume,                                        &
                         dat1,dat2,dat3,reqt,dum2d          ,dumk1,dumk2,                       &
-                        tdiag,qdiag,udiag,vdiag,wdiag,pdiag,out2d,out3d,                       &
-                        bndy,kbdy,hflxw,hflxe,hflxs,hflxn,                                     &
+                        tdiag,qdiag,udiag,vdiag,wdiag,pdiag,out2d,out3d,cir,crr,cangle,        &
+                        bndy,kbdy,hflxw,hflxe,hflxs,hflxn,recy_cap,recy_inj,timavg,sfctimavg,kmwk, &
                         nw1,nw2,ne1,ne2,sw1,sw2,se1,se2,myi1p,myi2p,myj1p,myj2p)
                         ! end_writeout
       use input
@@ -59,6 +59,8 @@
       use getcape_module
       use cm1libs , only : rslf,rsif
       use ib_module
+      use sfcphys_module , only : stabil_funcs
+      use eddy_recycle
 #ifdef MPI
       use mpi
 #endif
@@ -79,7 +81,7 @@
       character(len=3), dimension(maxq), intent(in) :: qname
       character(len=20), intent(in), dimension(maxq) :: qunit
       integer, intent(in) :: nstep,ndt
-      double precision, intent(in) :: mtime,adt
+      double precision, intent(in) :: mtime,adt,domainlocx,domainlocy
       character(len=60), intent(inout), dimension(maxvars) :: desc_output
       character(len=40), intent(inout), dimension(maxvars) :: name_output,unit_output
       character(len=1),  intent(inout), dimension(maxvars) :: grid_output
@@ -100,7 +102,7 @@
       real, dimension(ib:ie,jb:je), intent(in) :: zs
       real, dimension(itb:ite,jtb:jte), intent(in) :: rgzu,rgzv
       real, dimension(ib:ie,jb:je,nrain), intent(in) :: rain,sws,svs,sps,srs,sgs,sus,shs
-      real, dimension(ib:ie,jb:je), intent(in) :: xland,psfc,psmth,thflux,qvflux,cd,ch,cq,tlh,f2d,prate,ustt
+      real, dimension(ib:ie,jb:je), intent(in) :: xland,psfc,psmth,thflux,qvflux,cd,ch,cq,tlh,f2d,prate,ustt,cm0
       real, intent(in), dimension(ib:ie) :: rxh,arh1,arh2,uh,ruh
       real, intent(in), dimension(ib:ie+1) :: rxf,arf1,arf2
       real, intent(in), dimension(jb:je) :: vh,rvh
@@ -135,6 +137,7 @@
       real, intent(in), dimension(ibp3:iep3,kbp3:kep3,np3a) :: p3a
       real, intent(in), dimension(ibp3:iep3,jbp3:jep3,kbp3:kep3,np3o) :: p3o
       real, dimension(ibc:iec,jbc:jec,kbc:kec), intent(in) :: kmh,kmv,khh,khv
+      real, dimension(ibc:iec,jbc:jec,kbc:kec), intent(in) :: cme
       real, dimension(ibt:iet,jbt:jet,kbt:ket), intent(in) :: tkea
       real, dimension(ibr:ier,jbr:jer,kbr:ker), intent(in) :: swten,lwten,cldfra
       real, dimension(ni,nj), intent(in) :: radsw,rnflx,radswnet,radlwin,dsr,olr
@@ -169,23 +172,31 @@
       real, intent(inout) , dimension(ib2d:ie2d,jb2d:je2d,nout2d) :: out2d
       real, intent(inout) , dimension(ib3d:ie3d,jb3d:je3d,kb3d:ke3d,nout3d) :: out3d
 
+      integer, intent(in), dimension(ib:ie,jb:je) :: cir
+      real, intent(in), dimension(ib:ie,jb:je) :: crr,cangle
+
       logical, intent(in), dimension(ibib:ieib,jbib:jeib,kbib:keib) :: bndy
       integer, intent(in), dimension(ibib:ieib,jbib:jeib) :: kbdy
       integer, intent(in), dimension(ibib:ieib,jbib:jeib,kmaxib) :: hflxw,hflxe,hflxs,hflxn
+      integer, intent(in), dimension(ib:ie,jb:je) :: recy_cap,recy_inj
+
+      real, intent(in), dimension(ibta:ieta,jbta:jeta,kbta:keta,ntavr) :: timavg
+      real, intent(in), dimension(ibta:ieta,jbta:jeta,nsfctavr) :: sfctimavg
+
+      real, intent(in), dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: kmwk
 
       real, intent(inout), dimension(kmt) :: nw1,nw2,ne1,ne2,sw1,sw2,se1,se2
       integer, intent(in), dimension(numprocs) :: myi1p,myi2p,myj1p,myj2p
 
       integer :: i,j,k,n,nn,im,ip,nloop,nmax
       integer :: ncid,time_index,varid
-      real :: tnew,pnew,thold,thnew,rdt,qv,ql,thv
+      real :: tnew,pnew,thold,thnew,rdt,qv,ql,thv,ucrit
       real :: tem,r1,r2,epsd,pint,plast,dtdz,tmax,zibar
       character(len=8) :: text1
       character(len=30) :: text2
       logical, parameter :: dosfcflx = .true.
-      logical :: dothis
+      logical :: dothis,doit
 #ifdef MPI
-      logical :: doit
       character(len=80) sname,uname,vname,wname
       integer, dimension(MPI_STATUS_SIZE) :: status
       integer, parameter :: nlim = 1000
@@ -197,6 +208,8 @@
       integer :: hloop
       real :: bri,uavg,vavg,thvflux,tmpprt,thf1,thf2,gamfac,ws
       real, dimension(:,:), allocatable :: tmpqsfc,govthv,thv1,thvsfc
+
+      real :: tpsim,tpsih,tphim,tphih,zeta,ustbar,zntbar,molbar
 
       integer, parameter :: unum = 52
       integer, parameter :: vnum = 53
@@ -259,7 +272,7 @@
       if( output_format.eq.1 )then
 
         ! write metadata:
-        call     write_grads_metadata(nwrite,mrec,nstep,mtime,dt,adt,ndt)
+        call     write_grads_metadata(nwrite,mrec,nstep,mtime,dt,adt,ndt,domainlocx,domainlocy)
 
       endif
 
@@ -943,6 +956,20 @@
 
   !.............................................
 
+    if( idoles .and. cm1setup.eq.4 )then
+
+      n_out = n_out + 1
+      name_output(n_out) = 'cm0'
+      desc_output(n_out) = 'cm0'
+      unit_output(n_out) = 'unitless'
+      grid_output(n_out) = '2'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+        call   write2d(cm0,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+
+    endif
+
+  !.............................................
+
     if( betaplane.eq.1 )then
 
       n_out = n_out + 1
@@ -1031,7 +1058,7 @@
 
   !.............................................
 
-    if(output_dbz    .eq.1)then
+    if(output_dbz    .eq.1 .and. qd_dbz.ge.1 )then
 
       n_out = n_out + 1
       name_output(n_out) = 'cref    '
@@ -1897,6 +1924,26 @@
 
   !.............................................
 
+    IF( output_sfcdiags.eq.1 .and. dotimeavg .and. dot2p )THEN
+      n_out = n_out + 1
+      name_output(n_out) = 'znttavg '
+      desc_output(n_out) = 'time-average roughness length'
+      unit_output(n_out) = 'm'
+      grid_output(n_out) = '2'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j)
+          do j=1,nj
+          do i=1,ni
+            dum2d(i,j) = sfctimavg(i,j,2)
+          enddo
+          enddo
+
+        call   write2d(dum2d,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+    ENDIF
+
+  !.............................................
+
     IF(output_sfcdiags.eq.1)THEN
     if( sfcmodel.eq.2 .or. sfcmodel.eq.3 )then
       n_out = n_out + 1
@@ -1953,6 +2000,26 @@
           do j=1,nj
           do i=1,ni
             dum2d(i,j) = ust(i,j)
+          enddo
+          enddo
+
+        call   write2d(dum2d,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+    ENDIF
+
+  !.............................................
+
+    IF( output_sfcdiags.eq.1 .and. dotimeavg .and. dot2p )THEN
+      n_out = n_out + 1
+      name_output(n_out) = 'usttavg '
+      desc_output(n_out) = 'time-average friction velocity'
+      unit_output(n_out) = 'm/s'
+      grid_output(n_out) = '2'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j)
+          do j=1,nj
+          do i=1,ni
+            dum2d(i,j) = sfctimavg(i,j,1)
           enddo
           enddo
 
@@ -2183,6 +2250,26 @@
             else
               dum2d(i,j) = 1.0/rmol(i,j)
             endif
+          enddo
+          enddo
+
+        call   write2d(dum2d,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+    ENDIF
+
+  !.............................................
+
+    IF( output_sfcdiags.eq.1 .and. dotimeavg .and. dot2p )THEN
+      n_out = n_out + 1
+      name_output(n_out) = 'moltavg '
+      desc_output(n_out) = 'time-average Monin-Obukhov length (L)'
+      unit_output(n_out) = 'm'
+      grid_output(n_out) = '2'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j)
+          do j=1,nj
+          do i=1,ni
+            dum2d(i,j) = sfctimavg(i,j,3)
           enddo
           enddo
 
@@ -2975,6 +3062,50 @@
 
   !.............................................
 
+    IF( do_recycle )THEN
+
+      n_out = n_out + 1
+      name_output(n_out) = 'recy_cap'
+      desc_output(n_out) = 'recy_cap'
+      unit_output(n_out) = 'unitless'
+      grid_output(n_out) = '2'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j)
+          do j=1,nj
+          do i=1,ni
+            dum2d(i,j) = recy_cap(i,j)
+          enddo
+          enddo
+
+        call   write2d(dum2d,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+
+    ENDIF
+
+  !.............................................
+
+    IF( do_recycle )THEN
+
+      n_out = n_out + 1
+      name_output(n_out) = 'recy_inj'
+      desc_output(n_out) = 'recy_inj'
+      unit_output(n_out) = 'unitless'
+      grid_output(n_out) = '2'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j)
+          do j=1,nj
+          do i=1,ni
+            dum2d(i,j) = recy_inj(i,j)
+          enddo
+          enddo
+
+        call   write2d(dum2d,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+
+    ENDIF
+
+  !.............................................
+
     out2dcheck:  &
     IF( nout2d.ge.1 .and. ie2d.gt.1 .and. je2d.gt.1 )THEN
 
@@ -3075,6 +3206,30 @@
 
         call   writes(dum1,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
     endif
+
+  !.............................................
+
+    IF( dotimeavg .and. ttav.ge.1 )THEN
+      n_out = n_out + 1
+      name_output(n_out) = 'thtavg'
+      desc_output(n_out) = 'time-average theta'
+      unit_output(n_out) = 'K'
+      grid_output(n_out) = 's'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          dum1 = 0.0
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,min(keta,maxk)
+          do j=1,nj
+          do i=1,ni
+            dum1(i,j,k) = th0(i,j,k)+timavg(i,j,k,ttav)
+          enddo
+          enddo
+          enddo
+
+        call   writes(dum1,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
+    ENDIF
 
   !.............................................
 
@@ -3337,6 +3492,30 @@
           enddo
         call   writes(dum1,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
     endif
+
+  !.............................................
+
+    IF( dotimeavg .and. qtav.ge.1 .and. imoist.eq.1 )THEN
+      n_out = n_out + 1
+      name_output(n_out) = 'qvtavg'
+      desc_output(n_out) = 'time-average qv'
+      unit_output(n_out) = 'kg/kg'
+      grid_output(n_out) = 's'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          dum1 = 0.0
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,min(keta,maxk)
+          do j=1,nj
+          do i=1,ni
+            dum1(i,j,k) = timavg(i,j,k,qtav)
+          enddo
+          enddo
+          enddo
+
+        call   writes(dum1,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
+    ENDIF
 
   !.............................................
 
@@ -3866,7 +4045,7 @@
 
   !.............................................
 
-    if(output_dbz    .eq.1)then
+    if(output_dbz    .eq.1 .and. qd_dbz.ge.1 )then
       n_out = n_out + 1
       name_output(n_out) = 'dbz     '
       desc_output(n_out) = 'reflectivity'
@@ -3996,6 +4175,112 @@
           enddo
         call   writes(dum1,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
     endif
+
+  !.............................................
+
+    ! radial and tangential velocity:
+    doit = .false.
+
+    docyl:  &
+    IF( doit )THEN
+    if( doazimavg .or. do_adapt_move )then
+
+              ! dum1 = u at s pts
+              ! dum2 = v at s pts
+              ! dum3 = ur at s pts
+              ! dum4 = vt at s pts
+
+        do k=1,maxk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = 0.5*(ua(i,j,k)+ua(i+1,j,k)) + umove
+          dum2(i,j,k) = 0.5*(va(i,j,k)+va(i,j+1,k)) + vmove
+          if( abs(crr(i,j)).lt.1.0e-4 )then
+            dum3(i,j,k)=0.0
+            dum4(i,j,k)=0.0
+          else
+            dum3(i,j,k)=dum2(i,j,k)*sin(cangle(i,j))+dum1(i,j,k)*cos(cangle(i,j))
+            dum4(i,j,k)=dum2(i,j,k)*cos(cangle(i,j))-dum1(i,j,k)*sin(cangle(i,j))
+          endif
+        enddo
+        enddo
+        enddo
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      n_out = n_out + 1
+      name_output(n_out) = 'urad'
+      desc_output(n_out) = 'radial velocity (grnd-rel)'
+      unit_output(n_out) = 'm/s'
+      grid_output(n_out) = 's'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+        call   writes(dum3,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
+
+  !.............................................
+
+      n_out = n_out + 1
+      name_output(n_out) = 'vtan'
+      desc_output(n_out) = 'tangential velocity (grnd-rel)'
+      unit_output(n_out) = 'm/s'
+      grid_output(n_out) = 's'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+        call   writes(dum4,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
+
+  !.............................................
+
+      ucrit = -2.0
+
+      ! inflow layer depth:
+      do j=1,nj
+      do i=1,ni
+        if( dum3(i,j,1).lt.ucrit )then
+          k = 1
+          do while( dum3(i,j,k).lt.ucrit .and. k.le.nk )
+            k = k+1
+          enddo
+          dum2d(i,j) = zh(1,1,k-1)+(zh(1,1,k)-zh(1,1,k-1))  &
+                                  *(    ucrit-dum3(i,j,k-1))  &
+                                  /(dum3(i,j,k)-dum3(i,j,k-1))
+        else
+          dum2d(i,j) = 0.0
+        endif
+      enddo
+      enddo
+
+      n_out = n_out + 1
+      name_output(n_out) = 'zinfl'
+      desc_output(n_out) = 'depth of inflow layer (u < -2 m/s)'
+      unit_output(n_out) = 'm'
+      grid_output(n_out) = '2'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+        call   write2d(dum2d,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+
+    endif
+    ENDIF  docyl
+
+  !.............................................
+
+    IF( dotimeavg .and. utav.ge.1 .and. vtav.ge.1 )THEN
+      n_out = n_out + 1
+      name_output(n_out) = 'wsptavg'
+      desc_output(n_out) = 'time-average horiz wind speed'
+      unit_output(n_out) = 'm/s'
+      grid_output(n_out) = 's'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          dum1 = 0.0
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,min(keta,maxk)
+          do j=1,nj
+          do i=1,ni
+            dum1(i,j,k) = sqrt( (0.5*(timavg(i,j,k,utav)+timavg(i+1,j,k,utav)))**2  &
+                               +(0.5*(timavg(i,j,k,vtav)+timavg(i,j+1,k,vtav)))**2 )
+          enddo
+          enddo
+          enddo
+        call   writes(dum1,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
+    ENDIF
 
   !.............................................
 
@@ -4569,6 +4854,8 @@
 
   !.............................................
 
+    doit = .false.
+    if( doit )then
     dobrz:  &
     IF( ipbl.ge.1 )THEN
 
@@ -4674,6 +4961,7 @@
       deallocate(  thvsfc )
 
     ENDIF  dobrz
+    endif
 
   !.............................................
 
@@ -6297,6 +6585,29 @@
   !.............................................
 
 
+      IF( ipbl.eq.4 .or. ipbl.eq.5 )THEN
+        n_out = n_out + 1
+        name_output(n_out) = 'edmf_a'
+        desc_output(n_out) = 'edmf_a (MYNN)'
+        unit_output(n_out) = 'unitless'
+        grid_output(n_out) = 's'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,maxk
+          do j=1,nj
+          do i=1,ni
+            dum1(i,j,k) = edmf_a(i,j,k)
+          enddo
+          enddo
+          enddo
+        call   writes(dum1,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
+      ENDIF
+
+
+  !.............................................
+
+
       IF( do_ib )THEN
         n_out = n_out + 1
         name_output(n_out) = 'bndy'
@@ -6321,6 +6632,39 @@
 
   !.............................................
 
+    doit = .false.
+    if( doit )then
+    IF( dotimeavg .and. dot2p )THEN
+      n_out = n_out + 1
+      name_output(n_out) = 'wspa'
+      desc_output(n_out) = 'analytic wind speed'
+      unit_output(n_out) = 'm/s'
+      grid_output(n_out) = 's'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+        !$omp parallel do default(shared)  &
+        !$omp private(i,j,k)
+        do k=1,maxk
+        do j=1,nj
+        do i=1,ni
+          ustbar = sfctimavg(i,j,1)
+          zntbar = sfctimavg(i,j,2)
+          molbar = sfctimavg(i,j,3)
+          if( abs(molbar).gt.1.0e-6 )then
+            zeta = zh(1,1,k)/molbar
+            call stabil_funcs(zeta,tphim,tphih,tpsim,tpsih)
+          else
+            tpsim = 0.0
+          endif
+          dum1(i,j,k) = (ustbar/karman)*( alog(zh(1,1,k)/sngl(zntbar)) - tpsim )
+        enddo
+        enddo
+        enddo
+        call   writes(dum1,fnum,srec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out),sigma,zs,zh,dum9)
+    ENDIF
+    endif
+
+  !.............................................
+
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -6338,6 +6682,31 @@
 
         call   writeu( ua ,unum,urec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
     endif
+
+  !.............................................
+
+    IF( dotimeavg .and. utav.ge.1 )THEN
+    if(output_u    .eq.1)then
+      n_out = n_out + 1
+      name_output(n_out) = 'utavg'
+      desc_output(n_out) = 'time-average u'
+      unit_output(n_out) = 'm/s'
+      grid_output(n_out) = 'u'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          dumu = 0.0
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,min(keta,maxk)
+          do j=1,nj
+          do i=1,ni+1
+            dumu(i,j,k) = timavg(i,j,k,utav)
+          enddo
+          enddo
+          enddo
+        call   writeu(dumu,unum,urec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+    endif
+    ENDIF
 
   !.............................................
 
@@ -6706,6 +7075,56 @@
 
   !.............................................
 
+    ! arbitrary output (out3d array)
+
+! KLUDGE !
+  if(ptype.eq.91919)then
+    out3dchecku:  &
+    IF( nout3d.ge.1 .and. ie3d.gt.1 .and. je3d.gt.1 .and. ke3d.gt.1 )THEN
+
+      do n=1,nout3d
+
+        n_out = n_out + 1
+        text1 = 'out     '
+        if(n.lt.10)then
+          write(text1(4:4),211) n
+        elseif(n.lt.100)then
+          write(text1(4:5),212) n
+        elseif(n.lt.1000)then
+          write(text1(4:6),213) n
+        elseif(n.lt.10000)then
+          write(text1(4:7),214) n
+        elseif(n.lt.100000)then
+          write(text1(4:8),215) n
+        else
+          print *,'  nout3d is too large '
+          call stopcm1
+        endif
+        name_output(n_out) = text1
+        desc_output(n_out) = '3d output'
+        unit_output(n_out) = 'unknown'
+        grid_output(n_out) = 'u'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,maxk
+                do j=1,nj
+                do i=1,ni+1
+                  dumu(i,j,k) = out3d(i,j,k,n)
+                enddo
+                enddo
+                enddo
+
+        call   writeu(dumu,unum,urec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+
+      enddo
+
+    ENDIF  out3dchecku
+  endif
+! KLUDGE !
+
+  !.............................................
+
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -6723,6 +7142,31 @@
 
         call   writev( va ,vnum,vrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
     endif
+
+  !.............................................
+
+    IF( dotimeavg .and. vtav.ge.1 )THEN
+    if(output_v    .eq.1)then
+      n_out = n_out + 1
+      name_output(n_out) = 'vtavg'
+      desc_output(n_out) = 'time-average v'
+      unit_output(n_out) = 'm/s'
+      grid_output(n_out) = 'v'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          dumv = 0.0
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,min(keta,maxk)
+          do j=1,nj+1
+          do i=1,ni
+            dumv(i,j,k) = timavg(i,j,k,vtav)
+          enddo
+          enddo
+          enddo
+        call   writev(dumv,vnum,vrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+    endif
+    ENDIF
 
   !.............................................
 
@@ -7091,6 +7535,56 @@
 
   !.............................................
 
+    ! arbitrary output (out3d array)
+
+! KLUDGE !
+  if(ptype.eq.91919)then
+    out3dcheckv:  &
+    IF( nout3d.ge.1 .and. ie3d.gt.1 .and. je3d.gt.1 .and. ke3d.gt.1 )THEN
+
+      do n=1,nout3d
+
+        n_out = n_out + 1
+        text1 = 'out     '
+        if(n.lt.10)then
+          write(text1(4:4),211) n
+        elseif(n.lt.100)then
+          write(text1(4:5),212) n
+        elseif(n.lt.1000)then
+          write(text1(4:6),213) n
+        elseif(n.lt.10000)then
+          write(text1(4:7),214) n
+        elseif(n.lt.100000)then
+          write(text1(4:8),215) n
+        else
+          print *,'  nout3d is too large '
+          call stopcm1
+        endif
+        name_output(n_out) = text1
+        desc_output(n_out) = '3d output'
+        unit_output(n_out) = 'unknown'
+        grid_output(n_out) = 'v'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,maxk
+                do j=1,nj+1
+                do i=1,ni
+                  dumv(i,j,k) = out3d(i,j,k,n)
+                enddo
+                enddo
+                enddo
+
+        call   writev(dumv,vnum,vrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+
+      enddo
+
+    ENDIF  out3dcheckv
+  endif
+! KLUDGE !
+
+  !.............................................
+
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -7111,7 +7605,32 @@
 
   !.............................................
 
-    if( output_tke.eq.1 .and. cm1setup.eq.1 )then
+    IF( dotimeavg .and. wtav.ge.1 )THEN
+    if(output_w    .eq.1)then
+      n_out = n_out + 1
+      name_output(n_out) = 'wtavg'
+      desc_output(n_out) = 'time-average w'
+      unit_output(n_out) = 'm/s'
+      grid_output(n_out) = 'w'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          dumw = 0.0
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,min(keta,maxk+1)
+          do j=1,nj
+          do i=1,ni
+            dumw(i,j,k) = timavg(i,j,k,wtav)
+          enddo
+          enddo
+          enddo
+        call   writew(dumw,wnum,wrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+    endif
+    ENDIF
+
+  !.............................................
+
+    if( output_tke.eq.1 .and. idoles .and. iusetke )then
       n_out = n_out + 1
       name_output(n_out) = 'tke     '
       desc_output(n_out) = 'subgrid turbulence kinetic energy'
@@ -7120,6 +7639,31 @@
 
         call   writew(tkea,wnum,wrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
     endif
+
+  !.............................................
+
+    IF( dotimeavg .and. etav.ge.1 )THEN
+    if(output_tke  .eq.1)then
+      n_out = n_out + 1
+      name_output(n_out) = 'tketavg'
+      desc_output(n_out) = 'time-average tke'
+      unit_output(n_out) = 'm^2/s^2'
+      grid_output(n_out) = 'w'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          dumw = 0.0
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,min(keta,maxk+1)
+          do j=1,nj
+          do i=1,ni
+            dumw(i,j,k) = timavg(i,j,k,etav)
+          enddo
+          enddo
+          enddo
+        call   writew(dumw,wnum,wrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+    endif
+    ENDIF
 
   !.............................................
 
@@ -7181,6 +7725,21 @@
         call   writew(khv ,wnum,wrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
     endif
     endif
+
+  !.............................................
+
+  doit = .false.
+  if( doit )then
+    if( idoles )then
+      n_out = n_out + 1
+      name_output(n_out) = 'cme'
+      desc_output(n_out) = 'Variable C_m in subgrid TKE scheme'
+      unit_output(n_out) = 'unitless'
+      grid_output(n_out) = 'w'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+        call   writew(cme,wnum,wrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+    endif
+  endif
 
   !.............................................
 
@@ -7828,6 +8387,79 @@
 
   !.............................................
 
+      IF( (cm1setup.eq.1.or.cm1setup.eq.4) .and. sgsmodel.eq.4 .and. dotimeavg )THEN
+        n_out = n_out + 1
+        name_output(n_out) = 'kmw'
+        desc_output(n_out) = 'kmw'
+        unit_output(n_out) = 'm2/s'
+        grid_output(n_out) = 'w'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+          dumw = 0.0
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do k=1,min(ntwk,maxk+1)
+          do j=1,nj
+          do i=1,ni
+            dumw(i,j,k) = kmwk(i,j,k)
+          enddo
+          enddo
+          enddo
+        call   writew(dumw,wnum,wrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+      ENDIF
+
+  !.............................................
+
+    ! arbitrary output (out3d array)
+
+! KLUDGE !
+  if(ptype.eq.91919)then
+    out3dcheckw:  &
+    IF( nout3d.ge.1 .and. ie3d.gt.1 .and. je3d.gt.1 .and. ke3d.gt.1 )THEN
+
+      do n=1,nout3d
+
+        n_out = n_out + 1
+        text1 = 'out     '
+        if(n.lt.10)then
+          write(text1(4:4),211) n
+        elseif(n.lt.100)then
+          write(text1(4:5),212) n
+        elseif(n.lt.1000)then
+          write(text1(4:6),213) n
+        elseif(n.lt.10000)then
+          write(text1(4:7),214) n
+        elseif(n.lt.100000)then
+          write(text1(4:8),215) n
+        else
+          print *,'  nout3d is too large '
+          call stopcm1
+        endif
+        name_output(n_out) = text1
+        desc_output(n_out) = '3d output'
+        unit_output(n_out) = 'unknown'
+        grid_output(n_out) = 'w'     ! s=scalar pts (3d) ; u=u pts (3d) ; v=v pts (3d) ; w=w pts (3d) ; 2=2d scalar pts
+
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,maxk+1
+                do j=1,nj
+                do i=1,ni
+                  dumw(i,j,k) = out3d(i,j,k,n)
+                enddo
+                enddo
+                enddo
+
+        call   writew(dumw,wnum,wrec,nwrite,nloop,dat1,dat2,dat3,reqt,myi1p,myi2p,myj1p,myj2p,ncid,time_index,name_output(n_out))
+
+      enddo
+
+    ENDIF  out3dcheckw
+  endif
+! KLUDGE !
+
+  !.............................................
+
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -7936,7 +8568,7 @@
                       ni,nj,ngxy,myid,numprocs,nodex,nodey,irec,fileunit,  &
                       ncid,time_index,output_format,output_filetype,       &
                       dat1,dat2,dat3,reqt,ppnode,d3n,d3t,                  &
-                      mynode,nodemaster,nodes,d2i,d2j,d3i,d3j)
+                      mynode,nodeleader,nodes,d2i,d2j,d3i,d3j)
 #ifdef MPI
     use mpi
 #endif
@@ -7964,7 +8596,7 @@
     real, intent(inout), dimension(d2i,d2j) :: dat2
     real, intent(inout), dimension(d3i,d3j,0:d3n-1) :: dat3
     integer, intent(inout), dimension(d3t) :: reqt
-    integer, intent(in) :: mynode,nodemaster,nodes
+    integer, intent(in) :: mynode,nodeleader,nodes
 
     integer :: i,j,k
 #ifdef NETCDF
@@ -7987,13 +8619,13 @@
 
   IF(output_filetype.eq.1.or.output_filetype.eq.2)THEN
 
-      IF(myid.ne.nodemaster)THEN
-        call     writeocomm1(numi,numj,numk1,numk2,ngxy,d3i,d3j,nodemaster,dat1,var)
+      IF(myid.ne.nodeleader)THEN
+        call     writeocomm1(numi,numj,numk1,numk2,ngxy,d3i,d3j,nodeleader,dat1,var)
       ELSE
         IF(myid.ne.0)THEN
-          call   writeocomm2(numi,numj,numk1,numk2,ngxy,d3i,d3j,d3n,d3t,nodemaster,myid,ppnode,reqt,dat1,dat3,var)
+          call   writeocomm2(numi,numj,numk1,numk2,ngxy,d3i,d3j,d3n,d3t,nodeleader,myid,ppnode,reqt,dat1,dat3,var)
         ELSE
-          call   writeocomm3(numi,numj,numk1,numk2,ngxy,d2i,d2j,d3i,d3j,d3n,d3t,nodemaster,myid,mynode,ppnode,nodes,numprocs,ni,nj,nxr,nyr,output_format,fileunit,irec,myi1p,myi2p,myj1p,myj2p,reqt,dat1,dat2,dat3,var,ncid,aname,time_index)
+          call   writeocomm3(numi,numj,numk1,numk2,ngxy,d2i,d2j,d3i,d3j,d3n,d3t,nodeleader,myid,mynode,ppnode,nodes,numprocs,ni,nj,nxr,nyr,output_format,fileunit,irec,myi1p,myi2p,myj1p,myj2p,reqt,dat1,dat2,dat3,var,ncid,aname,time_index)
         ENDIF
       ENDIF
 
@@ -8175,17 +8807,17 @@
 #ifdef MPI
 
 
-      subroutine writeocomm1(numi,numj,numk1,numk2,ngxy,d3i,d3j,nodemaster,dat1,var)
+      subroutine writeocomm1(numi,numj,numk1,numk2,ngxy,d3i,d3j,nodeleader,dat1,var)
       use mpi
       implicit none
 
-      integer, intent(in) :: numi,numj,numk1,numk2,ngxy,d3i,d3j,nodemaster
+      integer, intent(in) :: numi,numj,numk1,numk2,ngxy,d3i,d3j,nodeleader
       real, intent(inout), dimension(d3i,d3j) :: dat1
       real, intent(in), dimension(1-ngxy:numi+ngxy,1-ngxy:numj+ngxy,numk1:numk2) :: var
 
       integer :: i,j,k,tag,reqs,ierr
 
-      ! ordinary processor ... send data to nodemaster:
+      ! ordinary processor ... send data to nodeleader:
 
       tag = 1
 
@@ -8199,7 +8831,7 @@
         enddo
         enddo
 
-        call MPI_ISEND(dat1(1,1),d3i*d3j,MPI_REAL,nodemaster,tag,MPI_COMM_WORLD,reqs,ierr)
+        call MPI_ISEND(dat1(1,1),d3i*d3j,MPI_REAL,nodeleader,tag,MPI_COMM_WORLD,reqs,ierr)
         call MPI_WAIT(reqs,MPI_STATUS_IGNORE,ierr)
 
         tag = tag+2
@@ -8218,11 +8850,11 @@
 #ifdef MPI
 
 
-      subroutine writeocomm2(numi,numj,numk1,numk2,ngxy,d3i,d3j,d3n,d3t,nodemaster,myid,ppnode,reqt,dat1,dat3,var)
+      subroutine writeocomm2(numi,numj,numk1,numk2,ngxy,d3i,d3j,d3n,d3t,nodeleader,myid,ppnode,reqt,dat1,dat3,var)
       use mpi
       implicit none
 
-      integer, intent(in) :: numi,numj,numk1,numk2,ngxy,d3i,d3j,d3n,d3t,nodemaster,myid,ppnode
+      integer, intent(in) :: numi,numj,numk1,numk2,ngxy,d3i,d3j,d3n,d3t,nodeleader,myid,ppnode
       integer, intent(inout), dimension(d3t) :: reqt
       real, intent(inout), dimension(d3i,d3j) :: dat1
       real, intent(inout), dimension(d3i,d3j,0:d3n-1) :: dat3
@@ -8231,7 +8863,7 @@
       integer :: i,j,k,tag,reqs,ierr,proc
       integer, dimension(mpi_status_size,ppnode-1) :: status
 
-      ! begin nodemaster section (not proc 0):
+      ! begin nodeleader section (not proc 0):
 
       tag = 1
 
@@ -8263,7 +8895,7 @@
 
       ENDDO
 
-      ! end nodemaster section (not proc0):
+      ! end nodeleader section (not proc0):
 
       end subroutine writeocomm2
 
@@ -8275,14 +8907,14 @@
 #ifdef MPI
 
 
-      subroutine writeocomm3(numi,numj,numk1,numk2,ngxy,d2i,d2j,d3i,d3j,d3n,d3t,nodemaster,myid,mynode,ppnode,nodes,numprocs,ni,nj,nxr,nyr,output_format,fileunit,irec,myi1p,myi2p,myj1p,myj2p,reqt,dat1,dat2,dat3,var,ncid,aname,time_index)
+      subroutine writeocomm3(numi,numj,numk1,numk2,ngxy,d2i,d2j,d3i,d3j,d3n,d3t,nodeleader,myid,mynode,ppnode,nodes,numprocs,ni,nj,nxr,nyr,output_format,fileunit,irec,myi1p,myi2p,myj1p,myj2p,reqt,dat1,dat2,dat3,var,ncid,aname,time_index)
       use mpi
 #ifdef NETCDF
       use netcdf
 #endif
       implicit none
 
-      integer, intent(in) :: numi,numj,numk1,numk2,ngxy,d2i,d2j,d3i,d3j,d3n,d3t,nodemaster,myid,mynode,ppnode,nodes,numprocs,ni,nj,nxr,nyr,output_format,fileunit
+      integer, intent(in) :: numi,numj,numk1,numk2,ngxy,d2i,d2j,d3i,d3j,d3n,d3t,nodeleader,myid,mynode,ppnode,nodes,numprocs,ni,nj,nxr,nyr,output_format,fileunit
       integer, intent(inout) :: irec
       integer, intent(in), dimension(numprocs) :: myi1p,myi2p,myj1p,myj2p
       integer, intent(inout), dimension(d3t) :: reqt
@@ -8313,7 +8945,7 @@
         call MPI_IRECV(dat3(1,1,proc),d3i*d3j,MPI_REAL,proc,tag,MPI_COMM_WORLD,reqt(proc),ierr)
       enddo
 
-      ! start receives from other nodemasters:
+      ! start receives from other nodeleaders:
       do nn = 1,(nodes-1)
         proc = nn*ppnode
         call MPI_IRECV(dat3(1,1,proc),d3i*d3j*ppnode,MPI_REAL,proc,tag+1,MPI_COMM_WORLD,reqt(ppnode-1+nn),ierr)
@@ -8363,7 +8995,7 @@
               enddo
               enddo
             else
-              ! data from other nodemasters:
+              ! data from other nodeleaders:
               index2 = index-(ppnode-1)
               n1 = index2*ppnode
               n2 = (index2+1)*ppnode-1
@@ -8545,7 +9177,11 @@
 
           write(50,201) dstring
           if(output_filetype.ge.2) write(50,221)
-          write(50,202) trim(cm1version)
+          if( outunits.eq.2 )then
+            write(50,212) trim(cm1version)
+          else
+            write(50,202) trim(cm1version)
+          endif
           write(50,203) grads_undef
 
           IF( ctl.eq.2 )THEN
@@ -8553,20 +9189,20 @@
             if(stretch_x.ge.1)then
               write(50,214) nx+1
               do i=1,nx+1
-                write(50,217) 0.001*xfref(i)
+                write(50,217) outunitconv*xfref(i)
               enddo
             else
-              write(50,204) nx+1,0.001*xf(1),0.001*dx
+              write(50,204) nx+1,outunitconv*xf(1),outunitconv*dx
             endif
           ELSE
             ! s staggering:
             if(stretch_x.ge.1)then
               write(50,214) nx
               do i=1,nx
-                write(50,217) 0.001*( 0.5*(xfref(i)+xfref(i+1)) )
+                write(50,217) outunitconv*( 0.5*(xfref(i)+xfref(i+1)) )
               enddo
             else
-              write(50,204) nx,0.001*xh(1),0.001*dx
+              write(50,204) nx,outunitconv*xh(1),outunitconv*dx
             endif
           ENDIF
 
@@ -8575,41 +9211,41 @@
             if(stretch_y.ge.1)then
               write(50,215) ny+1
               do j=1,ny+1
-                write(50,217) 0.001*yfref(j)
+                write(50,217) outunitconv*yfref(j)
               enddo
             else
-              write(50,205) ny+1,0.001*yf(1),0.001*dy
+              write(50,205) ny+1,outunitconv*yf(1),outunitconv*dy
             endif
           ELSE
             ! s staggering:
             if(stretch_y.ge.1)then
               write(50,215) ny
               do j=1,ny
-                write(50,217) 0.001*( 0.5*(yfref(j)+yfref(j+1)) )
+                write(50,217) outunitconv*( 0.5*(yfref(j)+yfref(j+1)) )
               enddo
             else
-              write(50,205) ny,0.001*yh(1),0.001*dy
+              write(50,205) ny,outunitconv*yh(1),outunitconv*dy
             endif
           ENDIF
 
           IF( ctl.eq.4 )THEN
             ! w staggering:
             if(stretch_z.eq.0)then
-              write(50,206) maxk+1,0.0,0.001*dz
+              write(50,206) maxk+1,0.0,outunitconv*dz
             else
               write(50,216) maxk+1
               do k=1,maxk+1
-                write(50,217) 0.001*sigmaf(k)
+                write(50,217) outunitconv*sigmaf(k)
               enddo
             endif
           ELSE
             ! s staggering:
             if(stretch_z.eq.0)then
-              write(50,206) maxk,0.001*sigma(1),0.001*dz
+              write(50,206) maxk,outunitconv*sigma(1),outunitconv*dz
             else
               write(50,216) maxk
               do k=1,maxk
-                write(50,217) 0.001*sigma(k)
+                write(50,217) outunitconv*sigma(k)
               enddo
             endif
           ENDIF
@@ -8674,15 +9310,20 @@
 
 201   format('dset ^',a)
 202   format('title CM1 output, using version ',a,'; units of x,y,z are km; time is generic, see cm1out_metadata for actual times')
+212   format('title CM1 output, using version ',a,'; units of x,y,z are meters; time is generic, see cm1out_metadata for actual times')
 221   format('options template')
 203   format('undef ',f10.1)
-204   format('xdef ',i6,' linear ',f13.6,1x,f13.6)
+!204   format('xdef ',i6,' linear ',f13.6,1x,f13.6)
+204   format('xdef ',i6,' linear ',es14.6e2,1x,es14.6e2)
 214   format('xdef ',i6,' levels ')
-205   format('ydef ',i6,' linear ',f13.6,1x,f13.6)
+!205   format('ydef ',i6,' linear ',f13.6,1x,f13.6)
+205   format('ydef ',i6,' linear ',es14.6e2,1x,es14.6e2)
 215   format('ydef ',i6,' levels ')
-206   format('zdef ',i6,' linear ',f13.6,1x,f13.6)
+!206   format('zdef ',i6,' linear ',f13.6,1x,f13.6)
+206   format('zdef ',i6,' linear ',es14.6e2,1x,es14.6e2)
 216   format('zdef ',i6,' levels ')
-217   format(2x,f13.6)
+!217   format(2x,f13.6)
+217   format(2x,es14.6e2)
 227   format('tdef ',i10,' linear 00:00Z01JAN0001 1YR')
 208   format('vars ',i6)
 209   format(a12,1x,i6,' 99 ',a60,1x,a12)
@@ -8696,7 +9337,7 @@
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 
-      subroutine write_grads_metadata(nwrite,mrec,nstep,mtime,dt,adt,ndt)
+      subroutine write_grads_metadata(nwrite,mrec,nstep,mtime,dt,adt,ndt,domainlocx,domainlocy)
       use input
       use constants , only : grads_undef
       implicit none
@@ -8708,6 +9349,7 @@
       real, intent(in) :: dt
       double precision, intent(in) :: adt
       integer, intent(in) :: ndt
+      double precision, intent(in) :: domainlocx,domainlocy
 
       integer :: i,n,nvar
       real :: var
@@ -8789,6 +9431,24 @@
       vardesc(nvar) = 'vmove (m/s)'
 
       write(61,rec=mrec) vmove
+      mrec = mrec+1
+
+    !---------------------------
+
+      nvar = nvar+1
+      varname(nvar) = 'domainlocx'
+      vardesc(nvar) = 'x location of (center of) domain (m)'
+
+      write(61,rec=mrec) sngl(domainlocx)
+      mrec = mrec+1
+
+    !---------------------------
+
+      nvar = nvar+1
+      varname(nvar) = 'domainlocy'
+      vardesc(nvar) = 'y location of (center of) domain (m)'
+
+      write(61,rec=mrec) sngl(domainlocy)
       mrec = mrec+1
 
     ENDIF
@@ -8934,7 +9594,7 @@
 !beh1
         IF( output_filetype.eq.1 .or. output_filetype.eq.2 )THEN
 
-          IF( myid.eq.nodemaster )THEN
+          IF( myid.eq.nodeleader )THEN
 
           if( output_filetype.eq.1 )then
 
@@ -9002,7 +9662,7 @@
 !beh1
         IF( output_filetype.eq.1 .or. output_filetype.eq.2 )THEN
 
-          IF( myid.eq.nodemaster )THEN
+          IF( myid.eq.nodeleader )THEN
 
           if( output_filetype.eq.1 )then
 
@@ -9070,7 +9730,7 @@
 !beh1
         IF( output_filetype.eq.1 .or. output_filetype.eq.2 )THEN
 
-          IF( myid.eq.nodemaster )THEN
+          IF( myid.eq.nodeleader )THEN
 
           if( output_filetype.eq.1 )then
 
@@ -9138,7 +9798,7 @@
 !beh1
         IF( output_filetype.eq.1 .or. output_filetype.eq.2 )THEN
 
-          IF( myid.eq.nodemaster )THEN
+          IF( myid.eq.nodeleader )THEN
 
           if( output_filetype.eq.1 )then
 
@@ -9239,7 +9899,7 @@
                 ni,nj,ngxy,myid,numprocs,nodex,nodey,srec,snum,             &
                 ncid,time_index,output_format,output_filetype,              &
                 dat1(1,1),dat2(1,1),dat3(1,1,1),reqt,ppnode,d3n,d3t,        &
-                mynode,nodemaster,nodes,d2is,d2js,d3is,d3js)
+                mynode,nodeleader,nodes,d2is,d2js,d3is,d3js)
 
     end subroutine write2d
 
@@ -9283,7 +9943,7 @@
                 ni,nj,ngxy,myid,numprocs,nodex,nodey,srec,snum,             &
                 ncid,time_index,output_format,output_filetype,              &
                 dat1(1,1),dat2(1,1),dat3(1,1,1),reqt,ppnode,d3n,d3t,        &
-                mynode,nodemaster,nodes,d2is,d2js,d3is,d3js)
+                mynode,nodeleader,nodes,d2is,d2js,d3is,d3js)
 
     end subroutine writes
 
@@ -9321,7 +9981,7 @@
                 ni,nj,ngxy,myid,numprocs,nodex,nodey,urec,unum,             &
                 ncid,time_index,output_format,output_filetype,              &
                 dat1(1,1),dat2(1,1),dat3(1,1,1),reqt,ppnode,d3n,d3t,        &
-                mynode,nodemaster,nodes,d2iu,d2ju,d3iu,d3ju)
+                mynode,nodeleader,nodes,d2iu,d2ju,d3iu,d3ju)
   endif
 
     end subroutine writeu
@@ -9360,7 +10020,7 @@
                 ni,nj,ngxy,myid,numprocs,nodex,nodey,vrec,vnum,             &
                 ncid,time_index,output_format,output_filetype,              &
                 dat1(1,1),dat2(1,1),dat3(1,1,1),reqt,ppnode,d3n,d3t,        &
-                mynode,nodemaster,nodes,d2iv,d2jv,d3iv,d3jv)
+                mynode,nodeleader,nodes,d2iv,d2jv,d3iv,d3jv)
   endif
 
     end subroutine writev
@@ -9399,7 +10059,7 @@
                 ni,nj,ngxy,myid,numprocs,nodex,nodey,wrec,wnum,             &
                 ncid,time_index,output_format,output_filetype,              &
                 dat1(1,1),dat2(1,1),dat3(1,1,1),reqt,ppnode,d3n,d3t,        &
-                mynode,nodemaster,nodes,d2is,d2js,d3is,d3js)
+                mynode,nodeleader,nodes,d2is,d2js,d3is,d3js)
   endif
 
     end subroutine writew

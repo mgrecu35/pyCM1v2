@@ -3,7 +3,6 @@
 
   public
 
-    logical :: do_ib
     integer :: ibib,ieib,jbib,jeib,kbib,keib
     integer :: kmaxib
 
@@ -17,7 +16,8 @@
       !-----------------------------------------
       ! USE IMMERSED BOUNDARY TECHNIQUE?
 
-        do_ib  =  .false.    
+!   since cm1r21.0 ... this is now set in the namelist (param20 section)
+!!!        do_ib  =  .false.    
 
       !-----------------------------------------
 
@@ -25,8 +25,9 @@
 
 !-----------------------------------------------------------------------
 
-    subroutine ib_init(xh,yh,xf,yf,sigma,sigmaf,zs,zh,bndy,kbdy,out3d,  &
-                       west,newwest,east,neweast,                 &
+    subroutine init_immersed_boundaries(                                &
+                       xh,yh,xf,yf,sigma,sigmaf,zs,zh,bndy,kbdy,out3d,  &
+                       west,newwest,east,neweast,                       &
                        south,newsouth,north,newnorth,reqs_p)
 
     use input
@@ -52,7 +53,7 @@
       real, intent(inout), dimension(imp,cmp) :: south,newsouth,north,newnorth
       real, intent(inout), optional, dimension(ib3d:ie3d,jb3d:je3d,kb3d:ke3d,nout3d) :: out3d
 
-      integer :: i,j,k,n,case
+      integer :: i,j,k,n
       real :: aa,hh,xc,xloc,yloc,foox,fooy,shift
       real, dimension(:,:), allocatable :: zsfoo
 
@@ -62,12 +63,8 @@
 
       ! Set case here:
 
-      case  =  4
+      ib_init  =  4
 
-
-      ! override for some test cases:
-      if( testcase.eq.12 )  case = 4   ! Martinuzzi and Tropea (1993, JFE) wind tunnel case:
-      if( testcase.eq.13 )  case = 3   ! UF Boundary Layer Wind Tunnel
 
 
       allocate( zsfoo(ib:ie,jb:je) )
@@ -75,7 +72,7 @@
 
     !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c
 
-      IF( case.eq.1 )THEN
+      IF( ib_init.eq.1 )THEN
 
         !  standard nh mountain wave case:
 
@@ -93,7 +90,7 @@
 
     !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c
 
-      IF( case.eq.2 )THEN
+      IF( ib_init.eq.2 )THEN
 
         !  2D block for tests of advection scheme:
 
@@ -117,7 +114,7 @@
 
     !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c
 
-      IF( case.eq.3 )THEN
+      IF( ib_init.eq.3 )THEN
 
         ! multiple cubes
 
@@ -138,14 +135,16 @@
 
     !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c
 
-    IF( case.eq.4 )THEN
+    IF( ib_init.eq.4 )THEN
 
       ! Martinuzzi and Tropea (1993, JFE) wind tunnel channel case:
 
     IF( ny.eq.1 )THEN
       do j=jb,je
       do i=ib,ie
-        if( abs(xh(i)-2250.0).le.250.0 ) zsfoo(i,j) = 500.0
+        if( abs(xh(i)-(minx+0.50*(maxx-minx)) ).le.(0.25*maxz) )then
+          zsfoo(i,j) = 0.5*maxz
+        endif
       enddo
       enddo
     ELSEIF( nx.eq.1 )THEN
@@ -153,14 +152,10 @@
     ELSE
       do j=jb,je
       do i=ib,ie
-      if( nx.gt.ny)then
-        if( abs(xh(i)-(4000.0+500.0) ).le.250.0 .and. abs(yh(j)-centery).le.250.0 ) zsfoo(i,j) = 500.0
-      else
-        if( abs(xh(i)-1950.0).le.250.0 .and. abs(yh(j)-4250.0).le.250.0 ) zsfoo(i,j) = 500.0
-      endif
-!!!        if( abs(xh(i)-centerx).le.250.0 .and. abs(yh(j)-centery).le.250.0 ) zsfoo(i,j) = 500.0
-!!!        if( abs(xh(i)-4250.0).le.250.0 .and. abs(yh(j)-0.0).le.250.0 ) zsfoo(i,j) = 500.0
-!!!        if( abs(xh(i)-1000.0).le.300.0 .and. abs(yh(j)-1000.0).le.300.0 ) zsfoo(i,j) = 500.0
+        if( abs(xh(i)-(minx+0.50*(maxx-minx)) ).le.(0.25*maxz) .and.  &
+            abs(yh(j)-centery).le.(0.25*maxz) )then
+          zsfoo(i,j) = 0.5*maxz
+        endif
       enddo
       enddo
     ENDIF
@@ -169,7 +164,7 @@
 
     !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c
 
-    IF( case.eq.5 )THEN
+    IF( ib_init.eq.5 )THEN
 
       ! cube in center of domain:
 
@@ -253,7 +248,7 @@
 
       deallocate( zsfoo )
 
-    end subroutine ib_init
+    end subroutine init_immersed_boundaries
 
 !-----------------------------------------------------------------------
 
@@ -347,22 +342,24 @@
     integer, intent(in), dimension(ibib:ieib,jbib:jeib) :: kbdy
 
     integer :: i,j,k,kk
-    real :: top_cd,side_cd,tem,tem2,rhox
+    real :: tem,tem2,rhox
     logical :: doit
 
 !-----------------------------
 
 !  drag on top & sides of obstacles
 
+
+!  NOTE: if you are looking to set top_cd or side_cd, they are now specified 
+!        in namelist.input (param20 section)
+
+
   doit = .true.
-  IF( doit )THEN
+!!!  IF( doit )THEN
 !!!    stop 4444
 
     doib:  &
     IF( do_ib )THEN
-
-      top_cd = 0.1
-      side_cd = 0.1
 
 !!!      if( myid.eq.0 ) print *,'  top_cd,side_cd = ',top_cd,side_cd
 
@@ -509,7 +506,7 @@
 
     ENDIF  doib
 
-  ENDIF
+!!!  ENDIF
 
     end subroutine drag_obstacles
 

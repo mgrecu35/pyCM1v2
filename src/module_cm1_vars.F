@@ -8,7 +8,7 @@ module cm1vars
       integer :: rbufsz,num_soil_layers,ndt
       real :: dt,dtlast
       double precision :: mtime,stattim,taptim,rsttim,radtim,prcltim,diagtim,azimavgtim,hifrqtim
-      double precision :: adt,acfl,dbldt
+      double precision :: adt,adtlast,acfl,dbldt
       double precision :: mass1,mass2
       double precision :: avgsfcu,avgsfcv,avgsfcs,avgsfcsu,avgsfcsv,avgsfct,avgsfcq,avgsfcp
       logical :: dosfcflx
@@ -49,7 +49,7 @@ module cm1vars
       real, dimension(:,:,:), allocatable :: gx,gxu,gy,gyv
       real, dimension(:,:,:), allocatable :: rain,sws,svs,sps,srs,sgs,sus,shs
       real, dimension(:,:), allocatable :: tsk,znt,rznt,zntmp,ust,stau,tst,qst,z0t,z0q,thflux,qvflux,  &
-                                           cd,ch,cq,u1,v1,s1,t1,xland,psfc,tlh,f2d,psmth,prate,ustt,ut,vt,st
+                                           cd,ch,cq,u1,v1,s1,t1,xland,psfc,tlh,f2d,psmth,prate,ustt,ut,vt,st,cm0
       real, dimension(:,:), allocatable :: radbcw,radbce
       real, dimension(:,:), allocatable :: radbcs,radbcn
       real, dimension(:,:), allocatable :: dtu,dtu0,dtv,dtv0
@@ -65,7 +65,7 @@ module cm1vars
       real, dimension(:,:,:,:), allocatable :: qa,q3d,qten
       real, dimension(:,:,:), allocatable :: p3a
       real, dimension(:,:,:,:), allocatable :: p3o
-      real, dimension(:,:,:), allocatable :: kmh,kmv,khh,khv
+      real, dimension(:,:,:), allocatable :: kmh,kmv,khh,khv,cme,csm,ce1,ce2
       real, dimension(:,:,:), allocatable :: tkea,tke3d,tketen
       real, dimension(:,:,:), allocatable :: nm,defv,defh,lenscl,dissten,epst,epsd1,epsd2
       real, dimension(:,:,:), allocatable :: thpten,qvpten,qcpten,qipten,upten,vpten,qnipten,qncpten,qrpten,qspten,qgpten
@@ -98,7 +98,7 @@ module cm1vars
       real, dimension(:,:), allocatable :: mixht,akhs,akms,elflx,ct,snow,sice,thz0,qz0,uz0,vz0,u10e,v10e,th10,q10,tshltr,qshltr,pshltr,z0base,zntmyj
       integer, dimension(:,:), allocatable :: lowlyr,ivgtyp
       real, dimension(:,:,:), allocatable :: tke_myj,el_myj
-      real, dimension(:,:,:), allocatable :: tmp_myj
+      real, dimension(:,:,:), allocatable :: tmp_pbl
 
       real, dimension(:), allocatable :: slab_zs,slab_dzs
       real, dimension(:,:,:), allocatable :: tslb
@@ -161,9 +161,13 @@ module cm1vars
       real, dimension(:,:,:),   allocatable :: out2d
       real, dimension(:,:,:,:), allocatable :: out3d
 
+      ! for output using cylindrical coords:
+      integer, dimension(:,:), allocatable :: cir
+      real, dimension(:,:), allocatable :: crr,cangle
+
       ! t2p arrays:
-      real, dimension(:), allocatable :: gamk,gamwall,kmw,ufw,vfw,u1b,v1b,l2p,s2p,s2b,t2pm1,t2pm2,t2pm3,t2pm4,cmz,csz,ce1z,ce2z
-      real, dimension(:,:,:), allocatable :: u2pt,v2pt
+      real, dimension(:), allocatable :: gamk,gamwall,kmw,ufw,vfw,u1b,v1b,l2p,s2p,s2b,t2pm1,t2pm2,t2pm3,t2pm4
+      real, dimension(:,:,:), allocatable :: u2pt,v2pt,kmwk,ufwk,vfwk
 
       ! cm1ib arrays:
       logical, dimension(:,:,:), allocatable :: bndy
@@ -173,27 +177,42 @@ module cm1vars
       logical :: dorestart,dowriteout,dostat,doprclout,dotdwrite,doazimwrite,dohifrqwrite
 
       ! eddy recycling:
-      real, dimension(:,:,:), allocatable :: urecyw,vrecyw,wrecyw,trecyw
-      real, dimension(:,:,:), allocatable :: urecys,vrecys,wrecys,trecys
+      integer, dimension(:,:), allocatable :: recy_cap,recy_inj
+      real, dimension(:,:,:,:), allocatable :: recywe
+      real, dimension(:,:,:,:), allocatable :: recysn
 
       ! for large-scale nudging:
       real, dimension(:,:), allocatable :: lsnudge_u,lsnudge_v,lsnudge_th,lsnudge_qv
 
+      ! arrays for time-averaging:
+      integer, dimension(:), allocatable :: ntavg
+      double precision, dimension(:), allocatable :: rtavg
+      double precision, dimension(:,:,:,:,:), allocatable :: tavg
+      real, dimension(:,:,:,:), allocatable :: timavg
+      double precision, dimension(:,:,:,:), allocatable :: sfctavg
+      real, dimension(:,:,:), allocatable :: sfctimavg
+
 !-----
 
       integer count,rate,maxr
-      real rtime,xtime,time_solve,time_solve0
-      real steptime1,steptime2
-      integer :: i,j,k,n,nn,fnum,frec
+      real :: rtime,xtime,time_solve,time_solve0,cfl_target,ks_target,kminit,khinit
+      real :: steptime1,steptime2
+      integer :: i,j,k,k1,k2,n,nn,fnum,frec
       real :: sum,tem0,tem
       logical :: getsfc,getpbl,update_sfc,startup,restarted,restart_prcl,reset
       logical :: dosolve,dorad,getdbz,getvt,doit,dotbud,doqbud,doubud,dovbud,dowbud,donudge
 
       integer :: icrs,icenter,jcenter
       real :: xcenter,ycenter
+      double precision :: domainlocx,domainlocy
 
       double precision :: adaptmovetim
       integer :: mvrec,nwritemv
+
+      integer :: ntot
+      double precision :: rtot,rdenom
+      real(kind=qp) :: qtem
+      logical :: printit
 
 #ifdef MPI
       integer :: reqs,rc,ii,jj,id,itmp1,itmp2,jtmp1,jtmp2
@@ -202,5 +221,4 @@ module cm1vars
       double precision :: tstart,tend
       integer, dimension(:), allocatable :: isum,jsum
 #endif
-      
 end module cm1vars

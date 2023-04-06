@@ -959,8 +959,9 @@
 
       elseif( testcase.eq.2 )then
 
-        qstar = 0.0
-        tst(i,j) = 0.0
+        qstar = cnst_shflx
+        if( rtime.gt.3000.0 ) qstar = 0.0
+        tst(i,j) = -qstar/ust(i,j)
         thflux(i,j) = qstar
         qvflux(i,j) = 0.0
 
@@ -1036,7 +1037,9 @@
       ! set some bounds:
       ust(i,j) = max(  0.1*ustlast , ust(i,j) )
       ust(i,j) = min( 10.0*ustlast , ust(i,j) )
-      ust(i,j) = min(   s1(i,j)    , ust(i,j) )
+!!!      ust(i,j) = min(   s1(i,j)    , ust(i,j) )
+      ust(i,j) = min( wspd(i,j)    , ust(i,j) )
+      ust(i,j) = max(   ustmin     , ust(i,j) )
 
       if(n.gt.nstop-10) print *,'  cm1most: ust,zeta,mol = ',n,ust(i,j),zeta,1.0/(sign( 1.0e-10 , rmol(i,j) )+rmol(i,j))
       if(n.gt.nstop)then

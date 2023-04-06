@@ -7,34 +7,11 @@
 
   public
 
-  ! use large-scale wind nudging?
 
-    logical, parameter ::  do_lsnudge  =  .false.   ! .true. = yes, use large-scale nudging
-                                                    ! .false. = no, do not use large-scale nudging
-
-        ! for do_lsnudge=.true., select which variables are nudged:
-    logical, parameter :: do_lsnudge_u     =  .false.   ! nudge u wind profile?
-    logical, parameter :: do_lsnudge_v     =  .false.   ! nudge v wind profile?
-    logical, parameter :: do_lsnudge_th    =  .false.   ! nudge potential temperature (theta) profiles?
-    logical, parameter :: do_lsnudge_qv    =  .false.   ! nudge water vapor mixing ratio (qv) profiles?
-
-
-    real, parameter ::  lsnudge_tau =    900.0   ! time scale (seconds) for damping term
-
-
-    ! NOTE:  CM1 only applies large-scale nudging when t > lsnudge_start and 
-    !        t < lsnudge_end;  the user must set these two variables below.  For any other 
-    !        times, large-scale nudging is not applied, regardless of the times provided 
-    !        for lsnudge_time1 and lsnudge_time2 in the lsnudge_xxxx.dat files.
-
-    real, parameter ::  lsnudge_start =   3600.0   ! time (seconds) to begin large-scale nudging
-
-    real, parameter ::  lsnudge_end =     7200.0   ! time (seconds) to end large-scale nudging
-
-    real, parameter ::  nudge_ramp_time =   900.0   ! time (seconds) over which to gradually introduce nudging (that is, for  lsnudge_start  <  t (seconds)  <  lsnudge_start+nudge_ramp_time )   (set to zero for instantaneous introduction of nudging)
-
-
-  ! Other Notes:
+  ! Notes:
+  !
+  !   - See variables in the param19 section of namelist.input for settings related 
+  !     to large-scale nudging.
   !
   !   - CM1 expects to find a series of "large-scale" data files in the same
   !     location as the cm1.exe file.  These must be named lsnudge_xxxx.dat, where 
@@ -45,7 +22,7 @@
   !           to nudge towards. 
   !
   !   - If you only provide one lsnudge file (lsnudge_0001.dat), then lsnudge_time1 
-  !     must be <= lsnudge_start, and lsnudge_time2 must be >= lsnudge_end.  
+  !     should be <= lsnudge_start, and lsnudge_time2 should be >= lsnudge_end.  
   !
 
 
@@ -93,8 +70,8 @@
         call stopcm1
       endif
 
-      if( nudge_ramp_time .gt. (lsnudge_end-lsnudge_start) )then
-        if( myid.eq.0 ) print *,'  12870: nudge_ramp_time is too large '
+      if( lsnudge_ramp_time .gt. (lsnudge_end-lsnudge_start) )then
+        if( myid.eq.0 ) print *,'  12870: lsnudge_ramp_time is too large '
 #ifdef MPI
         call MPI_BARRIER (MPI_COMM_WORLD,ierr)
 #endif

@@ -1018,7 +1018,7 @@
         call prepcornert(tke3d,nw1(1),nw2(1),ne1(1),ne2(1),sw1(1),sw2(1),se1(1),se2(1), &
                                tkw1,tkw2,tke1,tke2,tks1,tks2,tkn1,tkn2,reqs_p,0)
       endif
-      if( prdbz.ge.1 )then
+      if( prdbz.ge.1 .and. qd_dbz.ge.1 )then
         call prepcorners(qdiag(ibdq,jbdq,kbdq,qd_dbz),  &
                              nw1(1),nw2(1),ne1(1),ne2(1),sw1(1),sw2(1),se1(1),se2(1), &
                              pw1,pw2,pe1,pe2,ps1,ps2,pn1,pn2,reqs_p,1)
@@ -1417,7 +1417,7 @@
         ENDIF
 
       if(imoist.eq.1)then
-        if(prdbz.ge.1)  &
+        if( prdbz.ge.1 .and. qd_dbz.ge.1 )  &
         call tri_interp(ni,nj,nk,i,j,k,w1,w2,w3,w4,w5,w6,w7,w8,qdiag(ibdq,jbdq,kbdq,qd_dbz),pdata(np,prdbz))
         if(prqv.ge.1)  &
         call tri_interp(ni,nj,nk,i,j,k,w1,w2,w3,w4,w5,w6,w7,w8,q3d(ib,jb,kb,nqv),pdata(np,prqv))

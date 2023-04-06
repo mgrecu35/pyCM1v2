@@ -146,7 +146,7 @@
 !-----------------------------------------------------------------------
 !  Diagnostics:
 
-    IF( doubud )THEN
+    IF( doubud .and. ud_hediff.ge.1 .and. ud_vediff.ge.1 )THEN
 
       IF(axisymm.eq.0)THEN
         ! Cartesian grid:
@@ -321,7 +321,7 @@
 !-----------------------------------------------------------------------
 !  Diagnostics:
 
-    IF( dovbud )THEN
+    IF( dovbud .and. vd_hediff.ge.1 .and. vd_vediff.ge.1 )THEN
 
       IF(axisymm.eq.0)THEN
         ! Cartesian grid:
@@ -491,7 +491,7 @@
 !-----------------------------------------------------------------------
 !  Diagnostics:
 
-    IF( dowbud )THEN
+    IF( dowbud .and. wd_hediff.ge.1 .and. wd_vediff.ge.1 )THEN
 
       IF(axisymm.eq.0)THEN
         ! Cartesian grid:
@@ -694,7 +694,7 @@
 !-----------------------------------------------------------------------
 !  Diagnostics:
 
-    IF( dobud )THEN
+    IF( dobud .and. sd_hediff.ge.1 .and. sd_vediff.ge.1 )THEN
 
       IF(axisymm.eq.0)THEN
         ! Cartesian grid:

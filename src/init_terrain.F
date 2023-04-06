@@ -112,8 +112,7 @@
 !  read from GrADS file "perts.dat"
 
         ELSEIF(itern.eq.4)THEN
-           print*, nx,ny
-           !stop
+
           ! 170313:  zs_all array stores terrain for the entire domain
           allocate( zs_all(nx,ny) )
 
@@ -121,15 +120,12 @@
 
           IF( myid.eq.0 )THEN
 
-            !open(unit=73,file='perts.dat',status='old',   &
-            !     form='unformatted',access='direct',recl=4*nx*ny)
-             open(unit=73,file='terrain.txt',status='old')
-             do i=1,nx
-                read(73,*) (zs_all(i,j),j=1,ny)
-             enddo
-            !read(73,rec=1) ((zs_all(i,j),i=1,nx),j=1,ny)
+            open(unit=73,file='perts.dat',status='old',   &
+                 form='unformatted',access='direct',recl=4*nx*ny)
 
-            !close(unit=73)
+            read(73,rec=1) ((zs_all(i,j),i=1,nx),j=1,ny)
+
+            close(unit=73)
 
           ENDIF
 

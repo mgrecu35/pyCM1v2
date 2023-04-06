@@ -5,11 +5,11 @@
 
 !-----------------------------------------------------------------------------
 !
-!  CM1 Numerical Model, Release 20.3  (cm1r20.3)
-!  25 June 2021
+!  CM1 Numerical Model, Release 21.0  (cm1r21.0)
+!  20 April 2022
 !  https://www2.mmm.ucar.edu/people/bryan/cm1/
 !
-!  (c)2021 - University Corporation for Atmospheric Research 
+!  (c)2022 - University Corporation for Atmospheric Research 
 !
 !-----------------------------------------------------------------------------
 !  Quick Index:
@@ -74,55 +74,35 @@
 
   CONTAINS
 
-      subroutine solve2(nstep,rbufsz,num_soil_layers,                  &
-                   dt,dtlast,mtime,dbldt,mass1,mass2,                 &
-                   dosfcflx,cloudvar,rhovar,qmag,bud,bud2,qbudget,asq,bsq, &
-                   xh,rxh,arh1,arh2,uh,ruh,xf,rxf,arf1,arf2,uf,ruf,   &
-                   yh,vh,rvh,yf,vf,rvf,                               &
-                   xfref,xhref,yfref,yhref,dumk1,dumk2,dumk3,dumk4,rds,sigma,rdsf,sigmaf, &
-                   tauh,taus,zh,mh,rmh,c1,c2,tauf,zf,mf,rmf,         &
-                   rho0s,pi0s,prs0s,rth0s,                           &
-                   wprof,ufrc,vfrc,thfrc,qvfrc,ug,vg,dvdr,           &
-                   uavg,vavg,thavg,pavg,ulspg,vlspg,qavg,cavg,       &
+      subroutine solve2(nstep,                                       &
+                   dt,dtlast,mtime,dbldt,mass1,mass2,                &
+                   dosfcflx,qmag,bud,bud2,qbudget,asq,bsq,           &
+                   xh,rxh,arh1,arh2,uh,ruh,xf,rxf,arf1,arf2,uf,ruf,  &
+                   yh,vh,rvh,yf,vf,rvf,                              &
+                   dumk1,dumk2,dumk3,dumk4,rds,sigma,rdsf,sigmaf,    &
+                   zh,mh,rmh,c1,c2,zf,mf,rmf,wprof,                  &
                    pi0,rho0,prs0,thv0,th0,rth0,qv0,qc0,              &
                    qi0,rr0,rf0,rrf0,thrd,                            &
-                   zs,gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy,gx,gxu,gy,gyv, &
-                   rain,sws,svs,sps,srs,sgs,sus,shs,                 &
-                   tsk,thflux,qvflux,cd,ch,cq,u1,v1,s1,tlh,f2d,prate, &
+                   zs,gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy,gx,gxu,gy,gyv,f2d,cm0, &
                    radbcw,radbce,radbcs,radbcn,dtu,dtu0,dtv,dtv0,    &
                    dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,dum9,     &
                    divx,rho,rr,rf,prs,                               &
                    t11,t12,t13,t22,t23,t33,                          &
-                   m11,m12,m13,m22,m23,m33,                          &
                    u0,rru,ua,u3d,uten,uten1,                         &
                    v0,rrv,va,v3d,vten,vten1,                         &
                    rrw,wa,w3d,wten,wten1,                            &
                    ppi,pp3d,ppten,sten,sadv,ppx,phi1,phi2,           &
                    tha,th3d,thten,thten1,thterm,                     &
                    qpten,qtten,qvten,qcten,qa,q3d,qten,              &
-                   kmh,kmv,khh,khv,tkea,tke3d,tketen,                &
-                   nm,defv,defh,lenscl,dissten,epst,epsd1,epsd2,     &
-                   qke_adv,qke,qke3d,                                &
-                   thpten,qvpten,qcpten,qipten,upten,vpten,qnipten,qncpten,o30,zir,  &
-                   swten,lwten,effc,effi,effs,effr,effg,effis,       &
-                   lu_index,kpbl2d,psfc,u10,v10,s10,hfx,qfx,xland,znt,ust,  &
-                   hpbl,wspd,psim,psih,gz1oz0,br,                    &
-                   CHS,CHS2,CQS2,CPMM,ZOL,MAVAIL,                    &
-                   MOL,RMOL,REGIME,LH,FLHC,FLQC,QGH,                 &
-                   CK,CKA,CDA,USTM,QSFC,T2,Q2,TH2,EMISS,THC,ALBD,    &
-                   gsw,glw,chklowq,capg,snowc,dsxy,wstar,delta,fm,fh,zntmp,  &
-                   slab_zs,slab_dzs,tslb,tmn,tml,t0ml,hml,h0ml,huml,hvml,tmoml,       &
-                   pta,pt3d,ptten,pdata,                             &
-                   cfb,cfa,cfc,ad1,ad2,pdt,lgbth,lgbph,rhs,trans,flag,  &
-                   gamk,gamwall,kmw,u1b,v1b,u2pt,v2pt,               &
+                   tkea,tke3d,tketen,qke_adv,qke,qke3d,              &
+                   pta,pt3d,ptten,                                   &
+                   cfb,cfa,cfc,ad1,ad2,pdt,lgbth,lgbph,rhs,trans,flag, &
                    reqs_u,reqs_v,reqs_w,reqs_s,reqs_p,reqs_p2,reqs_p3, &
                    reqs_x,reqs_y,reqs_z,reqs_tk,reqs_q,reqs_t,       &
                    nw1,nw2,ne1,ne2,sw1,sw2,se1,se2,                  &
-                   n3w1,n3w2,n3e1,n3e2,s3w1,s3w2,s3e1,s3e2,          &
                    ww1,ww2,we1,we2,ws1,ws2,wn1,wn2,                  &
                    pw1,pw2,pe1,pe2,ps1,ps2,pn1,pn2,                  &
                    p2w1,p2w2,p2e1,p2e2,p2s1,p2s2,p2n1,p2n2,          &
-                   p3w1,p3w2,p3e1,p3e2,p3s1,p3s2,p3n1,p3n2,          &
                    vw1,vw2,ve1,ve2,vs1,vs2,vn1,vn2,                  &
                    zw1,zw2,ze1,ze2,zs1,zs2,zn1,zn2,                  &
                    uw31,uw32,ue31,ue32,us31,us32,un31,un32,          &
@@ -132,14 +112,10 @@
                    rw31,rw32,re31,re32,rs31,rs32,rn31,rn32,          &
                    qw31,qw32,qe31,qe32,qs31,qs32,qn31,qn32,          &
                    tkw1,tkw2,tke1,tke2,tks1,tks2,tkn1,tkn2,          &
-                   kw1,kw2,ke1,ke2,ks1,ks2,kn1,kn2,                  &
                    tw1,tw2,te1,te2,ts1,ts2,tn1,tn2,                  &
-                   dat1,dat2,dat3,reqt,reqc,                         &
-                   tdiag,qdiag,udiag,vdiag,wdiag,kdiag,pdiag,        &
+                   tdiag,qdiag,udiag,vdiag,wdiag,kdiag,              &
                    out2d,out3d,                                      &
                    bndy,kbdy,hflxw,hflxe,hflxs,hflxn,                &
-                   urecyw,vrecyw,wrecyw,trecyw,                      &
-                   urecys,vrecys,wrecys,trecys,                      &
                    dowriteout,dorad,getdbz,getvt,dotdwrite,          &
                    dotbud,doqbud,doubud,dovbud,dowbud,               &
                    doazimwrite,dorestart)
@@ -158,7 +134,6 @@
       use misclibs
       use module_mp_nssl_2mom, only : zscale, nssl_2mom_driver
       use ib_module
-      use eddy_recycle
 #ifdef MPI
       use mpi
 #endif
@@ -168,14 +143,12 @@
 ! Arrays and variables passed into solve
 
       integer, intent(in) :: nstep
-      integer, intent(in) :: rbufsz,num_soil_layers
       real, intent(inout) :: dt,dtlast
       double precision, intent(in   ) :: mtime
       double precision, intent(inout) :: dbldt
       double precision, intent(in   ) :: mass1
       double precision, intent(inout) :: mass2
       logical, intent(in) :: dosfcflx
-      logical, intent(in), dimension(maxq) :: cloudvar,rhovar
       real, dimension(maxq) :: qmag
       double precision, intent(inout), dimension(nk) :: bud
       double precision, intent(inout), dimension(nj) :: bud2
@@ -185,29 +158,20 @@
       real, intent(in), dimension(ib:ie+1) :: xf,rxf,arf1,arf2,uf,ruf
       real, intent(in), dimension(jb:je) :: yh,vh,rvh
       real, intent(in), dimension(jb:je+1) :: yf,vf,rvf
-      real, intent(in), dimension(1-ngxy:nx+ngxy+1) :: xfref,xhref
-      real, intent(in), dimension(1-ngxy:ny+ngxy+1) :: yfref,yhref
-      double precision, intent(inout), dimension(kb:ke) :: dumk1,dumk2,dumk3,dumk4
+      double precision, intent(inout), dimension(kb:ke) :: dumk1,dumk2
+      double precision, intent(inout), dimension(nk) :: dumk3,dumk4
       real, intent(in), dimension(kb:ke) :: rds,sigma
       real, intent(in), dimension(kb:ke+1) :: rdsf,sigmaf
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: tauh,taus,zh,mh,rmh,c1,c2
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: tauf,zf,mf,rmf
-      real, intent(in), dimension(ib:ie,jb:je) :: rho0s,pi0s,prs0s,rth0s
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: zh,mh,rmh,c1,c2
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: zf,mf,rmf
       real, intent(in),    dimension(kb:ke) :: wprof
-      real, intent(inout), dimension(kb:ke) :: ufrc,vfrc,thfrc,qvfrc,ug,vg,dvdr,  &
-                                               uavg,vavg,thavg,pavg,ulspg,vlspg
-      real, intent(inout), dimension(kb:ke,numq) :: qavg
-      double precision, intent(inout), dimension(kb:ke,3+numq) :: cavg
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: pi0,rho0,prs0,thv0,th0,rth0,qv0,qc0
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: qi0,rr0,rf0,rrf0
       real, intent(in), dimension(ibb2:ibe2,jbb2:jbe2,kbb2:kbe2) :: thrd
       real, intent(in), dimension(ib:ie,jb:je) :: zs
       real, intent(in), dimension(itb:ite,jtb:jte) :: gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy
       real, intent(in), dimension(itb:ite,jtb:jte,ktb:kte) :: gx,gxu,gy,gyv
-      real, intent(inout), dimension(ib:ie,jb:je,nrain) :: rain,sws,svs,sps,srs,sgs,sus,shs
-      real, intent(inout), dimension(ib:ie,jb:je) :: tsk,znt,zntmp,ust,thflux,qvflux,cd,ch,cq,u1,v1,s1,psfc,tlh
-      real, intent(in),    dimension(ib:ie,jb:je) :: xland,f2d
-      real, intent(inout), dimension(ib:ie,jb:je) :: prate
+      real, intent(in),    dimension(ib:ie,jb:je) :: f2d,cm0
       real, intent(inout), dimension(jb:je,kb:ke) :: radbcw,radbce
       real, intent(inout), dimension(ib:ie,kb:ke) :: radbcs,radbcn
       real, intent(inout), dimension(ib:ie,jb:je) :: dtu,dtv
@@ -215,7 +179,6 @@
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,dum9
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: divx,rho,rr,rf,prs
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: t11,t12,t13,t22,t23,t33
-      real, intent(in), dimension(ibnba:ienba,jbnba:jenba,kbnba:kenba) :: m11,m12,m13,m22,m23,m33
       real, intent(in), dimension(ib:ie+1,jb:je,kb:ke) :: u0
       real, intent(inout), dimension(ib:ie+1,jb:je,kb:ke) :: rru,ua,u3d,uten,uten1
       real, intent(in), dimension(ib:ie,jb:je+1,kb:ke) :: v0
@@ -226,48 +189,24 @@
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: tha,th3d,thten,thten1,thterm
       real, intent(inout), dimension(ibm:iem,jbm:jem,kbm:kem) :: qpten,qtten,qvten,qcten
       real, intent(inout), dimension(ibm:iem,jbm:jem,kbm:kem,numq) :: qa,q3d,qten
-      real, intent(inout), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmh,kmv,khh,khv
       real, intent(inout), dimension(ibt:iet,jbt:jet,kbt:ket) :: tkea,tke3d,tketen
-      real, intent(inout), dimension(ib:ie,jb:je,kb:ke+1) :: nm,defv,defh,lenscl,dissten,epst,epsd1,epsd2
       real, intent(inout), dimension(ibmynn:iemynn,jbmynn:jemynn,kbmynn:kemynn) :: qke_adv,qke,qke3d
-      real, intent(inout), dimension(ibb:ieb,jbb:jeb,kbb:keb) :: thpten,qvpten,qcpten,qipten,upten,vpten,qnipten,qncpten
-      real, intent(inout), dimension(ibr:ier,jbr:jer,kbr:ker) :: o30
-      real, intent(inout), dimension(ibr:ier,jbr:jer) :: zir
-      real, intent(inout), dimension(ibr:ier,jbr:jer,kbr:ker) :: swten,lwten
-      real, intent(inout), dimension(ibr:ier,jbr:jer,kbr:ker) :: effc,effi,effs,effr,effg,effis
-      integer, intent(inout), dimension(ibl:iel,jbl:jel) :: lu_index
-      integer, intent(inout), dimension(ibl:iel,jbl:jel) :: kpbl2d
-      real, intent(inout), dimension(ibl:iel,jbl:jel) :: u10,v10,s10,hfx,qfx, &
-                                      hpbl,wspd,psim,psih,gz1oz0,br,          &
-                                      CHS,CHS2,CQS2,CPMM,ZOL,MAVAIL,          &
-                                      MOL,RMOL,REGIME,LH,FLHC,FLQC,QGH,       &
-                                      CK,CKA,CDA,USTM,QSFC,T2,Q2,TH2,EMISS,THC,ALBD,   &
-                                      gsw,glw,chklowq,capg,snowc,dsxy,wstar,delta,fm,fh
-      real, intent(in), dimension(num_soil_layers) :: slab_zs,slab_dzs
-      real, intent(inout), dimension(ibl:iel,jbl:jel,num_soil_layers) :: tslb
-      real, intent(inout), dimension(ibl:iel,jbl:jel) :: tmn,tml,t0ml,hml,h0ml,huml,hvml,tmoml
       real, intent(inout), dimension(ibp:iep,jbp:jep,kbp:kep,npt) :: pta,pt3d,ptten
-      real, intent(inout), dimension(nparcels,npvals) :: pdata
       real, intent(in), dimension(ipb:ipe,jpb:jpe,kpb:kpe) :: cfb
       real, intent(in), dimension(kpb:kpe) :: cfa,cfc,ad1,ad2
       complex, intent(inout), dimension(ipb:ipe,jpb:jpe,kpb:kpe) :: pdt,lgbth,lgbph
       complex, intent(inout), dimension(ipb:ipe,jpb:jpe) :: rhs,trans
       logical, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: flag
-      real, intent(in), dimension(kb:ke) :: gamk,gamwall,kmw,u1b,v1b
-      real, intent(inout), dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: u2pt,v2pt
       integer, intent(inout), dimension(rmp) :: reqs_u,reqs_v,reqs_w,reqs_s,reqs_p,reqs_p2,reqs_p3,reqs_x,reqs_y,reqs_z,reqs_tk
       integer, intent(inout), dimension(rmp,numq) :: reqs_q
       integer, intent(inout), dimension(rmp,npt) :: reqs_t
       real, intent(inout), dimension(kmt) :: nw1,nw2,ne1,ne2,sw1,sw2,se1,se2
-      real, intent(inout), dimension(cmp,cmp,kmt+1) :: n3w1,n3w2,n3e1,n3e2,s3w1,s3w2,s3e1,s3e2
       real, intent(inout), dimension(jmp,kmp-1) :: ww1,ww2,we1,we2
       real, intent(inout), dimension(imp,kmp-1) :: ws1,ws2,wn1,wn2
       real, intent(inout), dimension(jmp,kmp) :: pw1,pw2,pe1,pe2
       real, intent(inout), dimension(imp,kmp) :: ps1,ps2,pn1,pn2
       real, intent(inout), dimension(jmp,kmp) :: p2w1,p2w2,p2e1,p2e2
       real, intent(inout), dimension(imp,kmp) :: p2s1,p2s2,p2n1,p2n2
-      real, intent(inout), dimension(jmp,kmp) :: p3w1,p3w2,p3e1,p3e2
-      real, intent(inout), dimension(imp,kmp) :: p3s1,p3s2,p3n1,p3n2
       real, intent(inout), dimension(jmp,kmp) :: vw1,vw2,ve1,ve2
       real, intent(inout), dimension(imp,kmp) :: vs1,vs2,vn1,vn2
       real, intent(inout), dimension(jmp,kmp) :: zw1,zw2,ze1,ze2
@@ -286,31 +225,20 @@
       real, intent(inout), dimension(imp,cmp,kmp,numq) :: qs31,qs32,qn31,qn32
       real, intent(inout), dimension(cmp,jmp,kmt)   :: tkw1,tkw2,tke1,tke2
       real, intent(inout), dimension(imp,cmp,kmt)   :: tks1,tks2,tkn1,tkn2
-      real, intent(inout), dimension(jmp,kmt,4)     :: kw1,kw2,ke1,ke2
-      real, intent(inout), dimension(imp,kmt,4)     :: ks1,ks2,kn1,kn2
       real, intent(inout), dimension(cmp,jmp,kmp,npt) :: tw1,tw2,te1,te2
       real, intent(inout), dimension(imp,cmp,kmp,npt) :: ts1,ts2,tn1,tn2
-      real, intent(inout), dimension(d3i,d3j) :: dat1
-      real, intent(inout), dimension(d2i,d2j) :: dat2
-      real, intent(inout), dimension(d3i,d3j,d3n) :: dat3
-      integer, intent(inout), dimension(d3t) :: reqt
-      integer, intent(inout) :: reqc
       real, intent(inout) , dimension(ibdt:iedt,jbdt:jedt,kbdt:kedt,ntdiag) :: tdiag
       real, intent(inout) , dimension(ibdq:iedq,jbdq:jedq,kbdq:kedq,nqdiag) :: qdiag
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nudiag) :: udiag
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nvdiag) :: vdiag
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nwdiag) :: wdiag
       real, intent(inout) , dimension(ibdk:iedk,jbdk:jedk,kbdk:kedk,nkdiag) :: kdiag
-      real, intent(inout) , dimension(ibdp:iedp,jbdp:jedp,kbdp:kedp,npdiag) :: pdiag
       real, intent(inout) , dimension(ib2d:ie2d,jb2d:je2d,nout2d) :: out2d
       real, intent(inout) , dimension(ib3d:ie3d,jb3d:je3d,kb3d:ke3d,nout3d) :: out3d
 
       logical, intent(in), dimension(ibib:ieib,jbib:jeib,kbib:keib) :: bndy
       integer, intent(in), dimension(ibib:ieib,jbib:jeib) :: kbdy
       integer, intent(in), dimension(ibib:ieib,jbib:jeib,kmaxib) :: hflxw,hflxe,hflxs,hflxn
-
-      real, intent(inout), dimension(irecywe,jrecywe,krecy) :: urecyw,vrecyw,wrecyw,trecyw
-      real, intent(inout), dimension(irecysn,jrecysn,krecy) :: urecys,vrecys,wrecys,trecys
 
       logical, intent(in) :: dowriteout,dorad,dotdwrite,doazimwrite,dorestart
       logical, intent(inout) :: getdbz,getvt,dotbud,doqbud,doubud,dovbud,dowbud
@@ -320,6 +248,7 @@
 
       integer :: i,j,k,n,nrk,bflag,pdef,diffit,k1,k2,ii
       integer :: has_reqc,has_reqi,has_reqs,do_radar_ref,ke_diag
+      integer :: reqc
 
       real :: delqv,delpi,delth,delt,fac,epsd,dheat,dz1,xs
       real :: foo1,foo2
@@ -835,7 +764,7 @@
           enddo
           enddo
 
-          IF( doubud .and. nrk.eq.nrkmax )THEN
+          IF( doubud .and. nrk.eq.nrkmax .and. ud_cent.ge.1 )THEN
             !$omp parallel do default(shared)  &
             !$omp private(i,j,k)
             do k=1,nk
@@ -900,7 +829,7 @@
 
 
         IF( dovbud )THEN
-        IF( axisymm.eq.1 .and. nrk.eq.nrkmax )THEN
+        IF( axisymm.eq.1 .and. nrk.eq.nrkmax .and. vd_cor.ge.1 .and. vd_cent.ge.1 .and. vd_hadv.ge.1 )THEN
           !  Diagnostics for axisymm:
 !$omp parallel do default(shared)  &
 !$omp private(i,j,k,tem1,tem2)
@@ -960,7 +889,7 @@
         enddo
         enddo
 
-        if( dowbud .and. nrk.eq.nrkmax )then
+        if( dowbud .and. nrk.eq.nrkmax .and. wd_buoy.ge.1 )then
           !$omp parallel do default(shared)  &
           !$omp private(i,j,k)
           do k=2,nk
@@ -1247,7 +1176,7 @@
 !--------------------------------------------------------------------
 !  Diagnostics:
 
-      IF( doubud .and. nrk.eq.nrkmax )THEN
+      IF( doubud .and. nrk.eq.nrkmax .and. ud_pgrad.ge.1 )THEN
         ! pressure gradient accel:
         rdt = 1.0/dt
         !$omp parallel do default(shared)  &
@@ -1261,7 +1190,7 @@
         enddo
       ENDIF
 
-      IF( dovbud .and. nrk.eq.nrkmax )THEN
+      IF( dovbud .and. nrk.eq.nrkmax .and. vd_pgrad.ge.1 )THEN
         rdt = 1.0/dt
         IF( axisymm.eq.1 )THEN
           !$omp parallel do default(shared)  &
@@ -1288,7 +1217,7 @@
         ENDIF
       ENDIF
 
-      IF( dowbud .and. nrk.eq.nrkmax )THEN
+      IF( dowbud .and. nrk.eq.nrkmax .and. wd_pgrad.ge.1 )THEN
         ! pressure gradient accel:
         rdt = 1.0/dt
 !$omp parallel do default(shared)  &
@@ -1651,8 +1580,8 @@
         ENDIF
 
 #ifdef MPI
-        call MPI_IALLREDUCE(mpi_in_place,dumk3(1),nk,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,reqp1,ierr)
-        call MPI_IALLREDUCE(mpi_in_place,dumk4(1),nk,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,reqp2,ierr)
+        call MPI_IALLREDUCE(mpi_in_place,dumk3,nk,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,reqp1,ierr)
+        call MPI_IALLREDUCE(mpi_in_place,dumk4,nk,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,reqp2,ierr)
 #endif
 
         dopf = .true.
@@ -1712,7 +1641,7 @@
 !--------------------------------------------------------------------
 !  TKE advection
  
-        IF( cm1setup.eq.1 .and. iusetke )THEN
+        IF( idoles .and. iusetke )THEN
 
           ! use wten for tke tendency, step tke forward:
 
@@ -1767,6 +1696,20 @@
         endif
         endif
 
+      if( cm1setup.eq.4 )then
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k)
+        do k=2,nk
+          do j=1,nj
+          do i=1,ni
+            tke3d(i,j,k)=tkea(i,j,k)+dttmp*wten(i,j,k)
+            if(tke3d(i,j,k).lt.1.0e-10) tke3d(i,j,k)=0.0
+            ! zero-out tke outside of LES subdomain:
+            if( cm0(i,j).le.cmemin ) tke3d(i,j,k) = 0.0
+          enddo
+          enddo
+        enddo
+      else
         !$omp parallel do default(shared)   &
         !$omp private(i,j,k)
         do k=2,nk
@@ -1777,6 +1720,7 @@
           enddo
           enddo
         enddo
+      endif
         if(timestats.ge.1) time_integ=time_integ+mytime()
 
         IF( do_ib )THEN
@@ -1794,7 +1738,8 @@
 !--------------------------------------------------------------------
 !  qke advection (for PBL schemes with TKE)
 
-    IF( cm1setup.eq.2 .and. iusetke )THEN
+    IF( idopbl )THEN
+    if( ipbl.eq.4 .or. ipbl.eq.5 )then
 
       doadv:  &
       if( bl_mynn_tkeadvect )then
@@ -1840,6 +1785,21 @@
                  .false.,ibdq,iedq,jbdq,jedq,kbdq,kedq,nqdiag,qdiag,1,1,1,              &
                  1,1,1,wprof,dumk1,dumk2,hadvordrs,vadvordrs,kbdy,bndy,hflxw,hflxe,hflxs,hflxn,out3d)
 
+        if( cm1setup.eq.4 )then
+          ! zero-out qke_adv in LES subdomain:
+          !$omp parallel do default(shared)   &
+          !$omp private(i,j,k)
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+          if( cm0(i,j).gt.cmemin )then
+            qke_adv(i,j,k)=0.0
+          endif
+          enddo
+          enddo
+          enddo
+        endif
+
         !$omp parallel do default(shared)   &
         !$omp private(i,j,k)
         do k=1,nk
@@ -1868,6 +1828,7 @@
 
       endif  doadv
 
+    endif
     ENDIF
 
 !--------------------------------------------------------------------

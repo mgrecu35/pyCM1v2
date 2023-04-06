@@ -19,6 +19,7 @@
       real, parameter ::  piddeg = pi/180.0
       real, parameter ::  degdpi = 180.0/pi
       real, parameter ::  clwsat = 1.e-6
+      real, parameter ::  cmemin = 1.e-4
       real, parameter ::  karman = 0.40
       real, parameter ::  rkarman = 1.0/karman
       real, parameter ::  omega  = 2.0*pi/86400.0
@@ -36,7 +37,9 @@
       !----------------
 
       ! open bc phase velocity:
-      real, parameter ::  cstar = 30.0
+      ! 211210: set this in param.F
+      ! 220227: now set this via namelist, with check in param.F
+!!!      real, parameter ::  cstar = 30.0
 
       ! open bc max velocity:
       real, parameter ::  csmax = 350.0

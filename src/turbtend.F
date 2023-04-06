@@ -3,7 +3,7 @@
   implicit none
 
   private
-  public :: turbs,turbt,turbu,turbv,turbw
+  public :: turbs,turbt,turbu,turbv,turbw,turbsz,turbuz,turbvz
 
   real :: fac,fac2
 
@@ -17,7 +17,7 @@
 
       subroutine turbs(iflux,dt,dosfcflx,xh,rxh,arh1,arh2,uh,xf,arf1,arf2,uf,vh,vf,sflux,  &
                        rds,sigma,rdsf,sigmaf,mh,mf,gz,rgz,gzu,rgzu,gzv,rgzv,gx,gxu,gy,gyv, &
-                       turbx,turby,turbz,dumx,dumy,dumz,rho,rr,rf,s,sten,khh,khv,dum7,dum8, &
+                       turbx,turby,turbz,dumx,dumy,dumz,rho,rr,rf,s,sten,khh,khv,cm0,dum7,dum8, &
                        dobud,ibd,ied,jbd,jed,kbd,ked,ndiag,diag,sd_hturb,sd_vturb,ivar)
       use input
       use constants
@@ -41,6 +41,7 @@
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: turbx,turby,turbz,dumx,dumy,dumz,sten
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: rho,rr,rf,s
       real, intent(in), dimension(ibc:iec,jbc:jec,kbc:kec) :: khh,khv
+      real, intent(in), dimension(ib:ie,jb:je) :: cm0
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: dum7,dum8
       logical, intent(in) :: dobud
       integer, intent(in) :: ibd,ied,jbd,jed,kbd,ked,ndiag,sd_hturb,sd_vturb
@@ -48,9 +49,8 @@
       integer, intent(in) :: ivar    ! 1 = potential temperature
                                      ! 2 = water vapor mixing ratio
 
-      integer :: i,j,k,k1,k2
-      real :: rdt,tema,temb,temc
-      real :: tem,r1,r2,cfa,cfb,cfc,cfd,kappa,ptcb,ptct
+      integer :: i,j,k
+      real :: r1,r2
 
 !---------------------------------------------------------------
 
@@ -328,6 +328,141 @@
   dovert:  &
   IF( dovturb )THEN
 
+      call       turbsz(iflux,dt,dosfcflx,sflux,mh,mf,  &
+                       turbz,dumx,dumy,dumz,rho,rr,rf,s,khv,dum7,dum8,ivar)
+
+  ELSE  dovert
+
+      !$omp parallel do default(shared)   &
+      !$omp private(i,j,k)
+      do k=1,nk
+      do j=1,nj
+      do i=1,ni
+        turbz(i,j,k)=0.0
+      enddo
+      enddo
+      enddo
+
+  ENDIF  dovert
+
+
+!---------------------------------------------------------------------
+!  Tendencies:
+
+    IF(axisymm.eq.0)THEN
+
+      IF( cm1setup.eq.4 )THEN
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k)
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          if( cm0(i,j) .le. cmemin )then
+            ! zero-out turb tendencies outside of LES domain:
+            turbx(i,j,k) = 0.0
+            turby(i,j,k) = 0.0
+            turbz(i,j,k) = 0.0
+          endif
+
+          sten(i,j,k)=sten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rr(i,j,k)
+        enddo
+        enddo
+        enddo
+      ELSE
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k)
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+
+          sten(i,j,k)=sten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rr(i,j,k)
+        enddo
+        enddo
+        enddo
+      ENDIF
+
+    ELSE
+
+      !$omp parallel do default(shared)   &
+      !$omp private(i,j,k)
+      do k=1,nk
+      do j=1,nj
+      do i=1,ni
+        sten(i,j,k)=sten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))*rr(i,j,k)
+      enddo
+      enddo
+      enddo
+
+    ENDIF
+
+!---------------------------------------------------------------------
+!  Diagnostics:
+
+      IF( dobud )THEN
+      if( sd_hturb.ge.1 .and. sd_vturb.ge.1 )then
+        if( axisymm.eq.0 )then
+          !$omp parallel do default(shared)   &
+          !$omp private(i,j,k)
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            diag(i,j,k,sd_hturb) = (turbx(i,j,k)+turby(i,j,k))*rr(i,j,k)
+            diag(i,j,k,sd_vturb) = turbz(i,j,k)*rr(i,j,k)
+          enddo
+          enddo
+          enddo
+        else
+          !$omp parallel do default(shared)   &
+          !$omp private(i,j,k)
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            diag(i,j,k,sd_hturb) = turbx(i,j,k)*rr(i,j,k)
+            diag(i,j,k,sd_vturb) = turbz(i,j,k)*rr(i,j,k)
+          enddo
+          enddo
+          enddo
+        endif
+      endif
+      ENDIF
+
+!---------------------------------------------------------------------
+
+      if(timestats.ge.1) time_ttend=time_ttend+mytime()
+
+      return
+      end subroutine turbs
+
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+
+
+      subroutine turbsz(iflux,dt,dosfcflx,sflux,mh,mf,  &
+                       turbz,dum1,dum2,dumz,rho,rr,rf,s,khv,dum7,dum8,ivar)
+      use input
+      use constants
+      use cm1libs , only : rslf,rsif
+      implicit none
+
+      integer, intent(in) :: iflux
+      real, intent(in) :: dt
+      logical, intent(in) :: dosfcflx
+      real, intent(in), dimension(ib:ie,jb:je) :: sflux
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: mh
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: mf
+      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: turbz,dum1,dum2,dumz
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: rho,rr,rf,s
+      real, intent(in), dimension(ibc:iec,jbc:jec,kbc:kec) :: khv
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: dum7,dum8
+      integer, intent(in) :: ivar
+
+      integer :: i,j,k
+      real :: rdt,tema,temb,temc
+      real :: tem,r1,r2,cfa,cfb,cfc,cfd,kappa,ptcb,ptct
+
+
     if( cm1setup.eq.3 )then
       kappa = viscosity/pr_num
       ! bottom/top boundary conditions:
@@ -360,7 +495,7 @@
         enddo
         enddo
 
-        IF( cm1setup.eq.1 .or. cm1setup.eq.2 )THEN
+        IF( cm1setup.eq.1 .or. cm1setup.eq.2 .or. cm1setup.eq.4 )THEN
           ! LES or mesoscale modeling:
 
           IF(bcturbs.eq.1)THEN
@@ -415,7 +550,6 @@
         do k=1,nk
         do i=1,ni
           turbz(i,j,k) = -(dumz(i,j,k+1)-dumz(i,j,k))*rdz*mh(i,j,k)
-          sten(i,j,k)=sten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rr(i,j,k)
         enddo
         enddo
 
@@ -431,7 +565,7 @@
       temc = dt*rdz
 
       ! boundary conditions:
-      IF( cm1setup.eq.1 .or. cm1setup.eq.2 )THEN
+      IF( cm1setup.eq.1 .or. cm1setup.eq.2 .or. cm1setup.eq.4 )THEN
         ! LES or mesoscale modeling:
         IF(bcturbs.eq.1)THEN
           !$omp parallel do default(shared)   &
@@ -499,8 +633,8 @@
           cfd = s(i,j,k) + temb*( -r2*s(i,j,k)+r2*s(i,j,k+1) )  &
                          + temc*dumz(i,j,1)*mh(i,j,1)*rr(i,j,1)
         tem = 1.0/cfb
-        dumx(i,j,1)=-cfc*tem
-        dumy(i,j,1)= cfd*tem
+        dum1(i,j,1)=-cfc*tem
+        dum2(i,j,1)= cfd*tem
       ENDDO
       enddo
 
@@ -516,15 +650,13 @@
           cfc = tema*r2
           cfb = 1.0 - cfa - cfc
           cfd = s(i,j,k) + temb*(r1*s(i,j,k-1)-(r1+r2)*s(i,j,k)+r2*s(i,j,k+1) )
-          tem = 1.0/(cfa*dumx(i,j,k-1)+cfb)
-          dumx(i,j,k)=-cfc*tem
-          dumy(i,j,k)=(cfd-cfa*dumy(i,j,k-1))*tem
+          tem = 1.0/(cfa*dum1(i,j,k-1)+cfb)
+          dum1(i,j,k)=-cfc*tem
+          dum2(i,j,k)=(cfd-cfa*dum2(i,j,k-1))*tem
         enddo
         enddo
 
         enddo
-
-      IF( axisymm.eq.0 )THEN
 
         k = nk
       !$omp parallel do default(shared)   &
@@ -536,10 +668,9 @@
           cfb = 1.0 - cfa
           cfd = s(i,j,k) + temb*( r1*s(i,j,k-1)-r1*s(i,j,k) )  &
                          - temc*dumz(i,j,nk+1)*mh(i,j,nk)*rr(i,j,nk)
-          tem = 1.0/(cfa*dumx(i,j,k-1)+cfb)
-          dumz(i,j,k)=(cfd-cfa*dumy(i,j,k-1))*tem
+          tem = 1.0/(cfa*dum1(i,j,k-1)+cfb)
+          dumz(i,j,k)=(cfd-cfa*dum2(i,j,k-1))*tem
           turbz(i,j,k) = rho(i,j,k)*(dumz(i,j,k)-s(i,j,k))*rdt
-          sten(i,j,k)=sten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rr(i,j,k)
         enddo
         enddo
 
@@ -549,101 +680,16 @@
       !$omp private(i,j)
         do j=1,nj
         DO i=1,ni
-          dumz(i,j,k)=dumx(i,j,k)*dumz(i,j,k+1)+dumy(i,j,k)
+          dumz(i,j,k)=dum1(i,j,k)*dumz(i,j,k+1)+dum2(i,j,k)
           turbz(i,j,k) = rho(i,j,k)*(dumz(i,j,k)-s(i,j,k))*rdt
-          sten(i,j,k)=sten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rr(i,j,k)
         ENDDO
         enddo
 
         enddo
-
-      ELSE
-
-        k = nk
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j,r1,r2,cfa,cfb,cfc,cfd,tem)
-        do j=1,nj
-        do i=1,ni
-          r1 = dum7(i,j,k)
-          cfa = tema*r1
-          cfb = 1.0 - cfa
-          cfd = s(i,j,k) + temb*( r1*s(i,j,k-1)-r1*s(i,j,k) )  &
-                         - temc*dumz(i,j,nk+1)*mh(i,j,nk)*rr(i,j,nk)
-          tem = 1.0/(cfa*dumx(i,j,k-1)+cfb)
-          dumz(i,j,k)=(cfd-cfa*dumy(i,j,k-1))*tem
-          turbz(i,j,k) = rho(i,j,k)*(dumz(i,j,k)-s(i,j,k))*rdt
-          sten(i,j,k)=sten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))*rr(i,j,k)
-        enddo
-        enddo
-
-        do k=nk-1,1,-1
-
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j)
-        do j=1,nj
-        DO i=1,ni
-          dumz(i,j,k)=dumx(i,j,k)*dumz(i,j,k+1)+dumy(i,j,k)
-          turbz(i,j,k) = rho(i,j,k)*(dumz(i,j,k)-s(i,j,k))*rdt
-          sten(i,j,k)=sten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))*rr(i,j,k)
-        ENDDO
-        enddo
-
-        enddo
-
-      ENDIF
 
   ENDIF  ifimpls
 
-  ELSE  dovert
-
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j,k)
-      do k=1,nk
-      do j=1,nj
-      do i=1,ni
-        turbz(i,j,k)=0.0
-        sten(i,j,k)=sten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rr(i,j,k)
-      enddo
-      enddo
-      enddo
-
-  ENDIF  dovert
-
-!---------------------------------------------------------------------
-!  Diagnostics:
-
-      IF( dobud )THEN
-        if( axisymm.eq.0 )then
-          !$omp parallel do default(shared)   &
-          !$omp private(i,j,k)
-          do k=1,nk
-          do j=1,nj
-          do i=1,ni
-            diag(i,j,k,sd_hturb) = (turbx(i,j,k)+turby(i,j,k))*rr(i,j,k)
-            diag(i,j,k,sd_vturb) = turbz(i,j,k)*rr(i,j,k)
-          enddo
-          enddo
-          enddo
-        else
-          !$omp parallel do default(shared)   &
-          !$omp private(i,j,k)
-          do k=1,nk
-          do j=1,nj
-          do i=1,ni
-            diag(i,j,k,sd_hturb) = turbx(i,j,k)*rr(i,j,k)
-            diag(i,j,k,sd_vturb) = turbz(i,j,k)*rr(i,j,k)
-          enddo
-          enddo
-          enddo
-        endif
-      ENDIF
-
-!---------------------------------------------------------------------
-
-      if(timestats.ge.1) time_ttend=time_ttend+mytime()
-
-      return
-      end subroutine turbs
+      end subroutine turbsz
 
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -1005,8 +1051,8 @@
 
       subroutine turbu(dt,xh,ruh,xf,rxf,arf1,arf2,uf,vh,mh,mf,rmf,rho,rf,  &
                        zs,gz,rgz,gzu,gzv,rds,sigma,rdsf,sigmaf,gxu,     &
-                       turbx,turby,turbz,dum1,dum2,dum3,dum7,dum8,u,uten,w,t11,t12,t13,t22,kmv, &
-                       kmw,ufw,u1b,u2pt,doubud,udiag)
+                       turbx,turby,turbz,dum1,dum2,dum3,dum7,dum8,u,uten,w,t11,t12,t13,t22,kmv,cm0, &
+                       kmw,ufw,u1b,u2pt,ufwk,doubud,udiag)
       use input
       use constants
       implicit none
@@ -1029,8 +1075,10 @@
       real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: w
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: t11,t12,t13,t22
       real, intent(in), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmv
+      real, intent(in), dimension(ib:ie,jb:je) :: cm0
       real, intent(in), dimension(kb:ke) :: kmw,ufw,u1b
       real, intent(inout), dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: u2pt
+      real, intent(in),    dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: ufwk
       logical, intent(in) :: doubud
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nudiag) :: udiag
 
@@ -1205,6 +1253,157 @@
 
   dovert:  &
   IF( dovturb )THEN
+
+      call       turbuz(dt,xh,ruh,xf,rxf,arf1,arf2,uf,vh,mh,mf,rmf,rho,rf,  &
+                       zs,gz,rgz,gzu,gzv,rds,sigma,rdsf,sigmaf,gxu,     &
+                       turbz,dum1,dum2,dum3,dum7,u ,w ,t11,t12,t13,t22,kmv, &
+                       kmw,ufw,u1b,u2pt,ufwk)
+
+  ELSE  dovert
+
+      !$omp parallel do default(shared)   &
+      !$omp private(i,j,k)
+      do k=1,nk
+      do j=1,nj
+      do i=1,ni+1
+        turbz(i,j,k)=0.0
+      enddo
+      enddo
+      enddo
+
+  ENDIF  dovert
+
+
+!-----------------------------------------------------------------
+!  Tendencies:
+
+    IF(axisymm.eq.0)THEN
+
+      IF( cm1setup.eq.4 )THEN
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k,rru0)
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni+1
+          if( 0.5*(cm0(i-1,j)+cm0(i,j)) .le. cmemin )then
+            ! zero-out turb tendencies outside of LES domain:
+            turbx(i,j,k) = 0.0
+            turby(i,j,k) = 0.0
+            turbz(i,j,k) = 0.0
+          endif
+          rru0 = 1.0/(0.5*(rho(i-1,j,k)+rho(i,j,k)))
+          uten(i,j,k)=uten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rru0
+        enddo
+        enddo
+        enddo
+      ELSE
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k,rru0)
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni+1
+          rru0 = 1.0/(0.5*(rho(i-1,j,k)+rho(i,j,k)))
+          uten(i,j,k)=uten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rru0
+        enddo
+        enddo
+        enddo
+      ENDIF
+
+    ELSE
+
+      !$omp parallel do default(shared)   &
+      !$omp private(i,j,k,rru0)
+      do k=1,nk
+      do j=1,nj
+      do i=2,ni+1
+        rru0 = 1.0/(0.5*(arf1(i)*rho(i-1,j,k)+arf2(i)*rho(i,j,k)))
+        uten(i,j,k)=uten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))*rru0
+      enddo
+      enddo
+      enddo
+
+    ENDIF
+
+!---------------------------------------------------------------------
+!  Diagnostics:
+
+      IF( doubud )THEN
+      if( ud_hturb.ge.1 .and. ud_vturb.ge.1 )then
+        if( axisymm.eq.0 )then
+          !$omp parallel do default(shared)   &
+          !$omp private(i,j,k,rru0)
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni+1
+            rru0 = 1.0/(0.5*(rho(i-1,j,k)+rho(i,j,k)))
+            udiag(i,j,k,ud_hturb) = (turbx(i,j,k)+turby(i,j,k))*rru0
+            udiag(i,j,k,ud_vturb) = turbz(i,j,k)*rru0
+          enddo
+          enddo
+          enddo
+        else
+          !$omp parallel do default(shared)   &
+          !$omp private(i,j,k,rru0)
+          do k=1,nk
+          do j=1,nj
+          do i=2,ni+1
+            rru0 = 1.0/(0.5*(arf1(i)*rho(i-1,j,k)+arf2(i)*rho(i,j,k)))
+            udiag(i,j,k,ud_hturb) = turbx(i,j,k)*rru0
+            udiag(i,j,k,ud_vturb) = turbz(i,j,k)*rru0
+          enddo
+          enddo
+          enddo
+        endif
+      endif
+      ENDIF
+
+!-------------------------------------------------------------------
+!  All done
+
+      if(timestats.ge.1) time_ttend=time_ttend+mytime()
+
+      return
+      end subroutine turbu
+
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+
+
+      subroutine turbuz(dt,xh,ruh,xf,rxf,arf1,arf2,uf,vh,mh,mf,rmf,rho,rf,  &
+                       zs,gz,rgz,gzu,gzv,rds,sigma,rdsf,sigmaf,gxu,     &
+                       turbz,dum1,dum2,dum3,dum7,u ,w ,t11,t12,t13,t22,kmv, &
+                       kmw,ufw,u1b,u2pt,ufwk)
+      use input
+      use constants
+      implicit none
+
+      real, intent(in) :: dt
+      real, intent(in), dimension(ib:ie) :: xh,ruh
+      real, intent(in), dimension(ib:ie+1) :: xf,rxf,arf1,arf2,uf
+      real, intent(in), dimension(jb:je) :: vh
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: mh
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: mf,rmf
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: rho,rf
+      real, intent(in), dimension(ib:ie,jb:je) :: zs
+      real, intent(in), dimension(itb:ite,jtb:jte) :: gz,rgz,gzu,gzv
+      real, intent(in), dimension(kb:ke) :: rds,sigma
+      real, intent(in), dimension(kb:ke+1) :: rdsf,sigmaf
+      real, intent(in), dimension(itb:ite,jtb:jte,ktb:kte) :: gxu
+      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: turbz,dum1,dum2,dum3,dum7
+      real, intent(in), dimension(ib:ie+1,jb:je,kb:ke) :: u
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: w
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: t11,t12,t13,t22
+      real, intent(in), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmv
+      real, intent(in), dimension(kb:ke) :: kmw,ufw,u1b
+      real, intent(inout), dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: u2pt
+      real, intent(in),    dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: ufwk
+
+      integer :: i,j,k,i1,i2
+      real :: rdt,tema,temb,temc
+      real :: tem,r1,r2,rru0
+      real :: cfa,cfb,cfc,cfd
 
   ifimplu:  &
   IF( doimpl.eq.0 )THEN
@@ -1581,7 +1780,8 @@
           do j=1,nj
           do i=i1,i2
 !!!            dum2(i,j,k) = tem*kmw(k)*(u1b(k)-u1b(k-1))*(rf(i-1,j,k)+rf(i,j,k))
-            dum2(i,j,k) = ufw(k)*0.5*(rf(i-1,j,k)+rf(i,j,k))
+!!!            dum2(i,j,k) = ufw(k)*0.5*(rf(i-1,j,k)+rf(i,j,k))
+            dum2(i,j,k) = 0.5*(rf(i-1,j,k)*ufwk(i-1,j,k)+rf(i,j,k)*ufwk(i,j,k))
           enddo
           enddo
         enddo
@@ -1598,109 +1798,19 @@
           do j=1,nj
           do i=i1,i2
             turbz(i,j,k) = turbz(i,j,k)+tem*(dum2(i,j,k+1)-dum2(i,j,k))
-          enddo
-          enddo
-        enddo
-
-      ENDIF
-
-!-----------------------------------------------------------------
-
-  ELSE  dovert
-
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j,k)
-      do k=1,nk
-      do j=1,nj
-      do i=1,ni+1
-        turbz(i,j,k)=0.0
-      enddo
-      enddo
-      enddo
-
-  ENDIF  dovert
-
-!-----------------------------------------------------------------
-
-    IF(axisymm.eq.0)THEN
-
-!$omp parallel do default(shared)   &
-!$omp private(i,j,k,rru0)
-      do k=1,nk
-      do j=1,nj
-      do i=1,ni+1
-        rru0 = 1.0/(0.5*(rho(i-1,j,k)+rho(i,j,k)))
-        uten(i,j,k)=uten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rru0
-      enddo
-      enddo
-      enddo
-
-      if( dot2p )then
-        ! store vertical tendency:
-        do k=1,ntwk
-        do j=1,nj
-        do i=1,ni+1
-          rru0 = 1.0/(0.5*(rho(i-1,j,k)+rho(i,j,k)))
-          u2pt(i,j,k)=turbz(i,j,k)*rru0
-        enddo
-        enddo
-        enddo
-      endif
-
-    ELSE
-
-!$omp parallel do default(shared)   &
-!$omp private(i,j,k,rru0)
-      do k=1,nk
-      do j=1,nj
-      do i=2,ni+1
-        rru0 = 1.0/(0.5*(arf1(i)*rho(i-1,j,k)+arf2(i)*rho(i,j,k)))
-        uten(i,j,k)=uten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))*rru0
-      enddo
-      enddo
-      enddo
-
-    ENDIF
-
-!---------------------------------------------------------------------
-!  Diagnostics:
-
-      IF( doubud )THEN
-        if( axisymm.eq.0 )then
-          !$omp parallel do default(shared)   &
-          !$omp private(i,j,k,rru0)
-          do k=1,nk
-          do j=1,nj
-          do i=1,ni+1
+            ! 211207: save 2-pt tendency
             rru0 = 1.0/(0.5*(rho(i-1,j,k)+rho(i,j,k)))
-            udiag(i,j,k,ud_hturb) = (turbx(i,j,k)+turby(i,j,k))*rru0
-            udiag(i,j,k,ud_vturb) = turbz(i,j,k)*rru0
+            u2pt(i,j,k)=tem*(dum2(i,j,k+1)-dum2(i,j,k))*rru0
           enddo
           enddo
-          enddo
-        else
-          !$omp parallel do default(shared)   &
-          !$omp private(i,j,k,rru0)
-          do k=1,nk
-          do j=1,nj
-          do i=2,ni+1
-            rru0 = 1.0/(0.5*(arf1(i)*rho(i-1,j,k)+arf2(i)*rho(i,j,k)))
-            udiag(i,j,k,ud_hturb) = turbx(i,j,k)*rru0
-            udiag(i,j,k,ud_vturb) = turbz(i,j,k)*rru0
-          enddo
-          enddo
-          enddo
-        endif
+        enddo
+
       ENDIF
 
-
-!-------------------------------------------------------------------
-!  All done
-
-      if(timestats.ge.1) time_ttend=time_ttend+mytime()
+!-----------------------------------------------------------------
 
       return
-      end subroutine turbu
+      end subroutine turbuz
 
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -1710,8 +1820,8 @@
 
       subroutine turbv(dt,xh,rxh,arh1,arh2,uh,xf,rvh,vf,mh,mf,rho,rr,rf,   &
                        zs,gz,rgz,gzu,gzv,rds,sigma,rdsf,sigmaf,gyv,  &
-                       turbx,turby,turbz,dum1,dum2,dum3,dum7,dum8,v,vten,w,t12,t22,t23,kmv, &
-                       kmw,vfw,v1b,v2pt,dovbud,vdiag)
+                       turbx,turby,turbz,dum1,dum2,dum3,dum7,dum8,v,vten,w,t12,t22,t23,kmv,cm0, &
+                       kmw,vfw,v1b,v2pt,vfwk,dovbud,vdiag)
       use input
       use constants
       implicit none
@@ -1735,8 +1845,10 @@
       real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: w
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: t12,t22,t23
       real, intent(in), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmv
+      real, intent(in), dimension(ib:ie,jb:je) :: cm0
       real, intent(in), dimension(kb:ke) :: kmw,vfw,v1b
       real, intent(inout), dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: v2pt
+      real, intent(in),    dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: vfwk
       logical, intent(in) :: dovbud
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nvdiag) :: vdiag
  
@@ -1914,6 +2026,158 @@
   dovert:  &
   IF( dovturb )THEN
 
+      call       turbvz(dt,xh,rxh,arh1,arh2,uh,xf,rvh,vf,mh,mf,rho,rr,rf,   &
+                       zs,gz,rgz,gzu,gzv,rds,sigma,rdsf,sigmaf,gyv,  &
+                       turbz,dum1,dum2,dum3,dum7,v ,w ,t12,t22,t23,kmv, &
+                       kmw,vfw,v1b,v2pt,vfwk)
+
+  ELSE  dovert
+
+      !$omp parallel do default(shared)   &
+      !$omp private(i,j,k)
+      do k=1,nk
+      do j=1,nj+1
+      do i=1,ni
+        turbz(i,j,k)=0.0
+      enddo
+      enddo
+      enddo
+
+  ENDIF  dovert
+
+
+!-----------------------------------------------------------------
+!  Tendencies:
+
+    IF(axisymm.eq.0)THEN
+
+      IF( cm1setup.eq.4 )THEN
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k,rrv0)
+        do k=1,nk
+        do j=1,nj+1
+        do i=1,ni
+          if( 0.5*(cm0(i,j-1)+cm0(i,j)) .le. cmemin )then
+            ! zero-out turb tendencies outside of LES domain:
+            turbx(i,j,k) = 0.0
+            turby(i,j,k) = 0.0
+            turbz(i,j,k) = 0.0
+          endif
+          rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
+          vten(i,j,k)=vten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rrv0
+        enddo
+        enddo
+        enddo
+      ELSE
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k,rrv0)
+        do k=1,nk
+        do j=1,nj+1
+        do i=1,ni
+          rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
+          vten(i,j,k)=vten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rrv0
+        enddo
+        enddo
+        enddo
+      ENDIF
+
+    ELSE
+
+      !$omp parallel do default(shared)   &
+      !$omp private(i,j,k)
+      do k=1,nk
+      do j=1,nj
+      do i=1,ni
+        vten(i,j,k)=vten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))*rr(i,j,k)
+      enddo
+      enddo
+      enddo
+
+    ENDIF
+
+!---------------------------------------------------------------------
+!  Diagnostics:
+
+      IF( dovbud )THEN
+      if( vd_hturb.ge.1 .and. vd_vturb.ge.1 )then
+        if( axisymm.eq.0 )then
+          !$omp parallel do default(shared)   &
+          !$omp private(i,j,k,rrv0)
+          do k=1,nk
+          do j=1,nj+1
+          do i=1,ni
+            rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
+            vdiag(i,j,k,vd_hturb) = (turbx(i,j,k)+turby(i,j,k))*rrv0
+            vdiag(i,j,k,vd_vturb) = turbz(i,j,k)*rrv0
+          enddo
+          enddo
+          enddo
+        else
+          !$omp parallel do default(shared)   &
+          !$omp private(i,j,k)
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            vdiag(i,j,k,vd_hturb) = turbx(i,j,k)*rr(i,j,k)
+            vdiag(i,j,k,vd_vturb) = turbz(i,j,k)*rr(i,j,k)
+            vdiag(i,2,k,vd_hturb) = vdiag(i,1,k,vd_hturb)
+            vdiag(i,2,k,vd_vturb) = vdiag(i,1,k,vd_vturb)
+          enddo
+          enddo
+          enddo
+        endif
+      endif
+      ENDIF
+
+!-------------------------------------------------------------------
+!  All done
+ 
+      if(timestats.ge.1) time_ttend=time_ttend+mytime()
+ 
+      return
+      end subroutine turbv
+
+
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+
+
+      subroutine turbvz(dt,xh,rxh,arh1,arh2,uh,xf,rvh,vf,mh,mf,rho,rr,rf,   &
+                       zs,gz,rgz,gzu,gzv,rds,sigma,rdsf,sigmaf,gyv,  &
+                       turbz,dum1,dum2,dum3,dum7,v ,w ,t12,t22,t23,kmv, &
+                       kmw,vfw,v1b,v2pt,vfwk)
+      use input
+      use constants
+      implicit none
+
+      real, intent(in) :: dt
+      real, intent(in), dimension(ib:ie) :: xh,rxh,arh1,arh2,uh
+      real, intent(in), dimension(ib:ie+1) :: xf
+      real, intent(in), dimension(jb:je) :: rvh
+      real, intent(in), dimension(jb:je+1) :: vf
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: mh
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: mf
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: rho,rr,rf
+      real, intent(in), dimension(ib:ie,jb:je) :: zs
+      real, intent(in), dimension(itb:ite,jtb:jte) :: gz,rgz,gzu,gzv
+      real, intent(in), dimension(kb:ke) :: rds,sigma
+      real, intent(in), dimension(kb:ke+1) :: rdsf,sigmaf
+      real, intent(in), dimension(itb:ite,jtb:jte,ktb:kte) :: gyv
+      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: turbz,dum1,dum2,dum3,dum7
+      real, intent(in), dimension(ib:ie,jb:je+1,kb:ke) :: v
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: w
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: t12,t22,t23
+      real, intent(in), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmv
+      real, intent(in), dimension(kb:ke) :: kmw,vfw,v1b
+      real, intent(inout), dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: v2pt
+      real, intent(in),    dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: vfwk
+ 
+      integer :: i,j,k,j1,j2
+      real :: rdt,tema,temb,temc
+      real :: tem,r1,r2,rrv0
+      real :: cfa,cfb,cfc,cfd
+
   ifimplv:  &
   IF( doimpl.eq.0 )THEN
       ! explicit vertical turbulence:
@@ -1937,10 +2201,6 @@
 
       ! implicit vertical turbulence:
 
-    check_grid:  &
-    IF(axisymm.eq.0)THEN
-      ! Cartesian grid:
-
       IF( .not. terrain_flag )THEN
 
         ! without terrain:
@@ -1950,8 +2210,13 @@
         temb =  0.0625*dt*vibeta*rdz*rdz
         temc =  0.5*dt*rdz
 
-        j1 = 1
-        j2 = nj+1
+        if( axisymm.eq.1 )then
+          j1 = 1
+          j2 = 1
+        else
+          j1 = 1
+          j2 = nj+1
+        endif
 
         !--------
         k = 1
@@ -2165,112 +2430,6 @@
 
       ENDIF
 
-    !------------------------------------------------------------
-
-    ELSE
-      ! axisymmetric grid:
-
-        rdt = 0.5/dt
-        tema = -0.0625*dt*vialpha*rdz*rdz
-        temb =  0.0625*dt*vibeta*rdz*rdz
-        temc =  0.5*dt*rdz
-
-        j1 = 1
-        j2 = 1
-
-        !--------
-        k = 1
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j,r1,r2,cfa,cfb,cfc,cfd,tem,rrv0)
-        do j=j1,j2
-        do i=1,ni
-          rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
-          tem = (mh(i,j-1,k)+mh(i,j,k))*rrv0
-          r2 = (kmv(i,j-1,k+1)+kmv(i,j,k+1))*(mf(i,j-1,k+1)+mf(i,j,k+1))   &
-              *(rf(i,j-1,k+1)+rf(i,j,k+1))*tem
-          cfc = tema*r2
-          cfb = 1.0 - cfc
-          cfd = v(i,j,k) + temb*( r2*v(i,j,k+1)-r2*v(i,j,k) )  &
-                         - temc*t23(i,j,1)*(mh(i,j-1,1)+mh(i,j,1))*rrv0
-          tem = 1.0/cfb
-          dum1(i,j,1)=-cfc*tem
-          dum2(i,j,1)= cfd*tem
-          dum7(i,j,1) = 0.0
-        enddo
-        enddo
-        !--------
-        do k=2,nk-1
-
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j,r1,r2,cfa,cfb,cfc,cfd,tem,rrv0)
-        do j=j1,j2
-        do i=1,ni
-          rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
-          tem = (mh(i,j-1,k)+mh(i,j,k))*rrv0
-          r1 = (kmv(i,j-1,k  )+kmv(i,j,k  ))*(mf(i,j-1,k  )+mf(i,j,k  ))   &
-              *(rf(i,j-1,k  )+rf(i,j,k  ))*tem
-          r2 = (kmv(i,j-1,k+1)+kmv(i,j,k+1))*(mf(i,j-1,k+1)+mf(i,j,k+1))   &
-              *(rf(i,j-1,k+1)+rf(i,j,k+1))*tem
-          cfa = tema*r1
-          cfc = tema*r2
-          cfb = 1.0 - cfa - cfc
-          cfd = v(i,j,k) + temb*( r2*v(i,j,k+1)-(r1+r2)*v(i,j,k)+r1*v(i,j,k-1) )
-          tem = 1.0/(cfa*dum1(i,j,k-1)+cfb)
-          dum1(i,j,k)=-cfc*tem
-          dum2(i,j,k)=(cfd-cfa*dum2(i,j,k-1))*tem
-          ! explicit piece ... dwdy term
-          dum7(i,j,k)=(w(i,j,k)-w(i,j-1,k))*rdy*vf(j)   &
-                     *0.25*( kmv(i,j-1,k)+kmv(i,j,k) )  &
-                          *( rf(i,j-1,k)+rf(i,j,k) )
-        enddo
-        enddo
-
-        enddo
-        !--------
-        k = nk
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j,r1,r2,cfa,cfb,cfc,cfd,tem,rrv0)
-        do j=j1,j2
-        do i=1,ni
-          rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
-          tem = (mh(i,j-1,k)+mh(i,j,k))*rrv0
-          r1 = (kmv(i,j-1,k  )+kmv(i,j,k  ))*(mf(i,j-1,k  )+mf(i,j,k  ))   &
-              *(rf(i,j-1,k  )+rf(i,j,k  ))*tem
-          cfa = tema*r1
-          cfb = 1.0 - cfa
-          cfd = v(i,j,k) + temb*( -r1*v(i,j,k)+r1*v(i,j,k-1) )  &
-                         + temc*t23(i,j,nk+1)*(mh(i,j-1,nk)+mh(i,j,nk))*rrv0
-          tem = 1.0/(cfa*dum1(i,j,k-1)+cfb)
-          dum3(i,j,k)=(cfd-cfa*dum2(i,j,k-1))*tem
-          turbz(i,j,k) = (rho(i,j-1,k)+rho(i,j,k))*(dum3(i,j,k)-v(i,j,k))*rdt
-          ! explicit piece ... dwdy term
-          dum7(i,j,k)=(w(i,j,k)-w(i,j-1,k))*rdy*vf(j)   &
-                     *0.25*( kmv(i,j-1,k)+kmv(i,j,k) )  &
-                          *( rf(i,j-1,k)+rf(i,j,k) )
-          turbz(i,j,k)=turbz(i,j,k)+(0.0-dum7(i,j,k))*rdz*0.5*(mh(i,j-1,k)+mh(i,j,k))
-        enddo
-        enddo
-        !--------
-
-        do k=nk-1,1,-1
-
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j)
-        do j=j1,j2
-        do i=1,ni
-          dum3(i,j,k)=dum1(i,j,k)*dum3(i,j,k+1)+dum2(i,j,k)
-          turbz(i,j,k) = (rho(i,j-1,k)+rho(i,j,k))*(dum3(i,j,k)-v(i,j,k))*rdt
-          ! explicit piece ... dwdy term
-          turbz(i,j,k)=turbz(i,j,k)+(dum7(i,j,k+1)-dum7(i,j,k))*rdz*0.5*(mh(i,j-1,k)+mh(i,j,k))
-        enddo
-        enddo
-
-        enddo
-
-    ENDIF  check_grid
-
-    !------------------------------------------------------------
-
   ENDIF  ifimplv
 
 !-----------------------------------------------------------------
@@ -2283,7 +2442,8 @@
           do j=j1,j2
           do i=1,ni
 !!!            dum2(i,j,k) = tem*kmw(k)*(v1b(k)-v1b(k-1))*(rf(i,j-1,k)+rf(i,j,k))
-            dum2(i,j,k) = vfw(k)*0.5*(rf(i,j-1,k)+rf(i,j,k))
+!!!            dum2(i,j,k) = vfw(k)*0.5*(rf(i,j-1,k)+rf(i,j,k))
+            dum2(i,j,k) = 0.5*(rf(i,j-1,k)*vfwk(i,j-1,k)+rf(i,j,k)*vfwk(i,j,k))
           enddo
           enddo
         enddo
@@ -2300,108 +2460,19 @@
           do j=j1,j2
           do i=1,ni
             turbz(i,j,k) = turbz(i,j,k)+tem*(dum2(i,j,k+1)-dum2(i,j,k))
-          enddo
-          enddo
-        enddo
-
-      ENDIF
-
-!-----------------------------------------------------------------
-
-  ELSE  dovert
-
-      !$omp parallel do default(shared)   &
-      !$omp private(i,j,k)
-      do k=1,nk
-      do j=1,nj+1
-      do i=1,ni
-        turbz(i,j,k)=0.0
-      enddo
-      enddo
-      enddo
-
-  ENDIF  dovert
-
-!-----------------------------------------------------------------
-
-    IF(axisymm.eq.0)THEN
-
-!$omp parallel do default(shared)   &
-!$omp private(i,j,k,rrv0)
-      do k=1,nk
-      do j=1,nj+1
-      do i=1,ni
-        rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
-        vten(i,j,k)=vten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))*rrv0
-      enddo
-      enddo
-      enddo
-
-      if( dot2p )then
-        ! store vertical tendency:
-        do k=1,ntwk
-        do j=1,nj+1
-        do i=1,ni
-          rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
-          v2pt(i,j,k)=turbz(i,j,k)*rrv0
-        enddo
-        enddo
-        enddo
-      endif
-
-    ELSE
-
-!$omp parallel do default(shared)   &
-!$omp private(i,j,k)
-      do k=1,nk
-      do j=1,nj
-      do i=1,ni
-        vten(i,j,k)=vten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))*rr(i,j,k)
-      enddo
-      enddo
-      enddo
-
-    ENDIF
-
-!---------------------------------------------------------------------
-!  Diagnostics:
-
-      IF( dovbud )THEN
-        if( axisymm.eq.0 )then
-          !$omp parallel do default(shared)   &
-          !$omp private(i,j,k,rrv0)
-          do k=1,nk
-          do j=1,nj+1
-          do i=1,ni
+            ! 211207: save 2-pt tendency
             rrv0 = 1.0/(0.5*(rho(i,j-1,k)+rho(i,j,k)))
-            vdiag(i,j,k,vd_hturb) = (turbx(i,j,k)+turby(i,j,k))*rrv0
-            vdiag(i,j,k,vd_vturb) = turbz(i,j,k)*rrv0
+            v2pt(i,j,k)=tem*(dum2(i,j,k+1)-dum2(i,j,k))*rrv0
           enddo
           enddo
-          enddo
-        else
-          !$omp parallel do default(shared)   &
-          !$omp private(i,j,k)
-          do k=1,nk
-          do j=1,nj
-          do i=1,ni
-            vdiag(i,j,k,vd_hturb) = turbx(i,j,k)*rr(i,j,k)
-            vdiag(i,j,k,vd_vturb) = turbz(i,j,k)*rr(i,j,k)
-            vdiag(i,2,k,vd_hturb) = vdiag(i,1,k,vd_hturb)
-            vdiag(i,2,k,vd_vturb) = vdiag(i,1,k,vd_vturb)
-          enddo
-          enddo
-          enddo
-        endif
+        enddo
+
       ENDIF
 
-!-------------------------------------------------------------------
-!  All done
- 
-      if(timestats.ge.1) time_ttend=time_ttend+mytime()
- 
+!-----------------------------------------------------------------
+
       return
-      end subroutine turbv
+      end subroutine turbvz
 
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -2410,7 +2481,7 @@
 
  
       subroutine turbw(dt,xh,rxh,arh1,arh2,uh,xf,vh,mh,mf,rho,rf,gz,rgzu,rgzv,rds,sigma,   &
-                       turbx,turby,turbz,dum1,dum2,dum3,w,wten,t13,t23,t33,t22,kmh,  &
+                       turbx,turby,turbz,dum1,dum2,dum3,w,wten,t13,t23,t33,t22,kmh,cm0,  &
                        dowbud,wdiag)
       use input
       use constants
@@ -2430,6 +2501,7 @@
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke+1) :: wten
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: t13,t23,t33,t22
       real, intent(in), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmh
+      real, intent(in), dimension(ib:ie,jb:je) :: cm0
       logical, intent(in) :: dowbud
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nwdiag) :: wdiag
  
@@ -2595,7 +2667,7 @@
 !  z-direction
 
   dovert:  &
-  IF( dovturb )THEN
+  IF( dovturb .or. ( cm1setup.eq.2 .and. ipbl.eq.2 ) )THEN
 
   ifimplw:  &
   IF( doimpl.eq.0 )THEN
@@ -2607,7 +2679,6 @@
       do j=1,nj
       do i=1,ni
         turbz(i,j,k)=(t33(i,j,k)-t33(i,j,k-1))*rdz*mf(i,j,k)
-        wten(i,j,k)=wten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))/rf(i,j,k)
       enddo
       enddo
       enddo
@@ -2674,7 +2745,6 @@
           tem = 1.0/(cfa*dum1(i,j,k-1)+cfb)
           dum3(i,j,k) = (cfd-cfa*dum2(i,j,k-1))*tem
           turbz(i,j,k) = rf(i,j,k)*(dum3(i,j,k)-w(i,j,k))*rdt
-          wten(i,j,k)=wten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))/rf(i,j,k)
         enddo
         enddo
 
@@ -2686,7 +2756,6 @@
         do i=1,ni
           dum3(i,j,k) = dum1(i,j,k)*dum3(i,j,k+1)+dum2(i,j,k)
           turbz(i,j,k) = rf(i,j,k)*(dum3(i,j,k)-w(i,j,k))*rdt
-          wten(i,j,k)=wten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))/rf(i,j,k)
         enddo
         enddo
 
@@ -2708,7 +2777,6 @@
           tem = 1.0/(cfa*dum1(i,j,k-1)+cfb)
           dum3(i,j,k) = (cfd-cfa*dum2(i,j,k-1))*tem
           turbz(i,j,k) = rf(i,j,k)*(dum3(i,j,k)-w(i,j,k))*rdt
-          wten(i,j,k)=wten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))/rf(i,j,k)
         enddo
         enddo
 
@@ -2720,7 +2788,6 @@
         do i=1,ni
           dum3(i,j,k) = dum1(i,j,k)*dum3(i,j,k+1)+dum2(i,j,k)
           turbz(i,j,k) = rf(i,j,k)*(dum3(i,j,k)-w(i,j,k))*rdt
-          wten(i,j,k)=wten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))/rf(i,j,k)
         enddo
         enddo
 
@@ -2738,7 +2805,6 @@
       do j=1,nj
       do i=1,ni
         turbz(i,j,k)=0.0
-        wten(i,j,k)=wten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))/rf(i,j,k)
       enddo
       enddo
       enddo
@@ -2746,9 +2812,59 @@
   ENDIF  dovert
 
 !---------------------------------------------------------------------
+!  Tendencies:
+
+    IF(axisymm.eq.0)THEN
+
+      IF( cm1setup.eq.4 )THEN
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k)
+        do k=2,nk
+        do j=1,nj
+        do i=1,ni
+          if( cm0(i,j) .le. cmemin )then
+            ! zero-out turb tendencies outside of LES domain:
+            turbx(i,j,k) = 0.0
+            turby(i,j,k) = 0.0
+            turbz(i,j,k) = 0.0
+          endif
+
+          wten(i,j,k)=wten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))/rf(i,j,k)
+        enddo
+        enddo
+        enddo
+      ELSE
+        !$omp parallel do default(shared)   &
+        !$omp private(i,j,k)
+        do k=2,nk
+        do j=1,nj
+        do i=1,ni
+
+          wten(i,j,k)=wten(i,j,k)+((turbx(i,j,k)+turby(i,j,k))+turbz(i,j,k))/rf(i,j,k)
+        enddo
+        enddo
+        enddo
+      ENDIF
+
+    ELSE
+
+      !$omp parallel do default(shared)   &
+      !$omp private(i,j,k)
+      do k=2,nk
+      do j=1,nj
+      do i=1,ni
+        wten(i,j,k)=wten(i,j,k)+(turbx(i,j,k)+turbz(i,j,k))/rf(i,j,k)
+      enddo
+      enddo
+      enddo
+
+    ENDIF
+
+!---------------------------------------------------------------------
 !  Diagnostics:
 
       IF( dowbud )THEN
+      if( wd_hturb.ge.1 .and. wd_vturb.ge.1 )then
         if( axisymm.eq.0 )then
           !$omp parallel do default(shared)   &
           !$omp private(i,j,k)
@@ -2772,6 +2888,7 @@
           enddo
           enddo
         endif
+      endif
       ENDIF
 
 !-------------------------------------------------------------------

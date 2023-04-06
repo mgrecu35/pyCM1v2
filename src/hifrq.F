@@ -30,7 +30,7 @@
                    pi0,rho0,prs0,thv0,th0,rth0,qv0,qc0,u0,v0,                  &
                    qi0,rr0,rf0,rrf0,                                           &
                    zs,gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy,gx,gxu,gy,gyv,        &
-                   tsk,znt,ust,stau,thflux,qvflux,cd,ch,cq,u1,v1,s1,xland,psfc,tlh, &
+                   tsk,znt,ust,stau,thflux,qvflux,cd,ch,cq,u1,v1,s1,xland,psfc,tlh,psmth, &
                    dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,                    &
                    divx,rho,rr,rf,prs,t11,t12,t13,t22,t23,t33,                 &
                    rru,u3d,ugr ,utmp ,                                         &
@@ -40,12 +40,13 @@
                    q3d,qten,kmh,kmv,khh,khv,tkea,tke3d,tketen,                 &
                    nm,defv,defh,dissten,                                       &
                    thpten,qvpten,qcpten,qipten,upten,vpten,xkzh,xkzq,xkzm,     &
-                   rain,u10,v10,s10,br,brcr,hpbl,t2,q2,hfx,qfx,prate,          &
+                   rain,u10,v10,s10,br,brcr,hpbl,t2,q2,hfx,qfx,prate,cm0,      &
                    swten,lwten,cldfra,                                         &
                    lwupt,lwuptc,lwdnt,lwdntc,lwupb,lwupbc,lwdnb,lwdnbc,        &
                    swupt,swuptc,swdnt,swdntc,swupb,swupbc,swdnb,swdnbc,        &
                    lwcf,swcf,wprof,dumk1,dumk2,                                &
                    tdiag,qdiag,udiag,vdiag,wdiag,pdiag,out2d,out3d,getdbz,getvt, &
+                   cir,crr,cangle,                                             &
                    myi1p,myi2p,myj1p,myj2p,kbdy,bndy,                          &
                    sw31,sw32,se31,se32,ss31,ss32,sn31,sn32,flag,               &
                    dat1,dat2,dat3,reqt,reqs_s)
@@ -53,7 +54,7 @@
     use input
     use constants
     use cm1libs , only : rslf,rsif
-    use adv_module , only : advs
+!!!    use adv_module , only : advs
     use bc_module
     use ib_module
 #ifdef NETCDF
@@ -93,7 +94,7 @@
     real, intent(in), dimension(itb:ite,jtb:jte) :: gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy
     real, intent(in), dimension(itb:ite,jtb:jte,ktb:kte) :: gx,gxu,gy,gyv
     real, intent(in), dimension(ib:ie,jb:je) :: tsk,znt,ust,stau,thflux,qvflux,cd,ch,cq,  &
-                                                u1,v1,s1,xland,psfc,tlh
+                                                u1,v1,s1,xland,psfc,tlh,psmth
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: divx,rho,rr,rf,prs
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: t11,t12,t13,t22,t23,t33
@@ -110,7 +111,7 @@
     real, intent(in), dimension(ibb:ieb,jbb:jeb,kbb:keb) :: xkzh,xkzq,xkzm
     real, intent(in), dimension(ib:ie,jb:je,nrain) :: rain
     real, intent(in), dimension(ibl:iel,jbl:jel) :: u10,v10,s10,br,brcr,hpbl,t2,q2,hfx,qfx
-    real, intent(in), dimension(ib:ie,jb:je) :: prate
+    real, intent(in), dimension(ib:ie,jb:je) :: prate,cm0
     real, intent(in), dimension(ibr:ier,jbr:jer,kbr:ker) :: swten,lwten,cldfra
     real, intent(in), dimension(ibr:ier,jbr:jer) :: lwupt,lwuptc,lwdnt,lwdntc,lwupb,lwupbc,lwdnb,lwdnbc
     real, intent(in), dimension(ibr:ier,jbr:jer) :: swupt,swuptc,swdnt,swdntc,swupb,swupbc,swdnb,swdnbc
@@ -126,6 +127,8 @@
     real, intent(inout), dimension(ib2d:ie2d,jb2d:je2d,nout2d) :: out2d
     real, intent(inout) , dimension(ib3d:ie3d,jb3d:je3d,kb3d:ke3d,nout3d) :: out3d
     logical, intent(in) :: getdbz,getvt
+    integer, intent(in), dimension(ib:ie,jb:je) :: cir
+    real, intent(in), dimension(ib:ie,jb:je) :: crr,cangle
     integer, intent(in), dimension(numprocs) :: myi1p,myi2p,myj1p,myj2p
     integer, intent(in), dimension(ibib:ieib,jbib:jeib) :: kbdy
       logical, intent(in), dimension(ibib:ieib,jbib:jeib,kbib:keib) :: bndy
@@ -141,7 +144,7 @@
     !---------------------------------------------------------------------------
 
     integer :: nvar,orec,i,j,k,n,nn,nlevels,diffit,wloopmax
-    real :: delz,delzmin,pint,plast,qvs,tx,havg
+    real :: delz,delzmin,pint,plast,qvs,tx,havg,ucrit
     logical :: doit,domse
     double precision :: sum,weps,bfoo
 
@@ -186,7 +189,8 @@
       do n=1,nlevels
         if( zlev(n).le.maxz )then
           delzmin = 1.0e30
-          do k=1,nk
+          ! search from top, so that "ties" go to higher level
+          do k=nk,1,-1
             delz = abs(sigma(k)-zlev(n))
             if( delz.lt.delzmin )then
               delzmin = delz
@@ -395,9 +399,9 @@
       nvar = nvar+1
       varname(nvar) = 'u10'
     if( imove.eq.1 )then
-      vardesc(nvar) = 'u component of 10m wind speed (ground-rel.)'
+      vardesc(nvar) = 'u comp. of 10m wind speed (ground-rel.)'
     else
-      vardesc(nvar) = 'u component of 10m wind speed'
+      vardesc(nvar) = 'u comp. of 10m wind speed'
     endif
       varunit(nvar) = 'm/s'
       varlvls(nvar) = 0
@@ -411,15 +415,75 @@
       nvar = nvar+1
       varname(nvar) = 'v10'
     if( imove.eq.1 )then
-      vardesc(nvar) = 'v component of 10m wind speed (ground-rel.)'
+      vardesc(nvar) = 'v comp. of 10m wind speed (ground-rel.)'
     else
-      vardesc(nvar) = 'v component of 10m wind speed'
+      vardesc(nvar) = 'v comp. of 10m wind speed'
     endif
       varunit(nvar) = 'm/s'
       varlvls(nvar) = 0
 
       call writehf(1,v10,dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
     ENDIF
+
+  !---------------------------------------------------------------------
+
+    IF( sfcmodel.ge.1 )THEN
+
+    ! radial and tangential velocity:
+    doit = .true.
+
+    docylsfc:  &
+    if( doit )then
+    if( doazimavg .or. do_adapt_move )then
+
+              ! dum1 = u at s pts
+              ! dum2 = v at s pts
+              ! dum3 = ur at s pts
+              ! dum4 = vt at s pts
+
+        k = 1
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = u10(i,j)
+          dum2(i,j,k) = v10(i,j)
+          if( abs(crr(i,j)).lt.1.0e-4 )then
+            dum3(i,j,k)=0.0
+            dum4(i,j,k)=0.0
+          else
+            dum3(i,j,k)=dum2(i,j,k)*sin(cangle(i,j))+dum1(i,j,k)*cos(cangle(i,j))
+            dum4(i,j,k)=dum2(i,j,k)*cos(cangle(i,j))-dum1(i,j,k)*sin(cangle(i,j))
+          endif
+        enddo
+        enddo
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      nvar = nvar+1
+      varname(nvar) = 'urad10'
+      vardesc(nvar) = 'rad. comp. of 10m wind speed (ground-rel.)'
+      varunit(nvar) = 'm/s'
+      varlvls(nvar) = 0
+
+      call writehf(1,dum3(ib,jb,1),dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      nvar = nvar+1
+      varname(nvar) = 'vtan10'
+      vardesc(nvar) = 'tang. comp. of 10m wind speed (ground-rel.)'
+      varunit(nvar) = 'm/s'
+      varlvls(nvar) = 0
+
+      call writehf(1,dum4(ib,jb,1),dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+    endif
+    endif  docylsfc
+
+    ENDIF
+
+  !---------------------------------------------------------------------
 
       !c-c-c-c-c-c-c-c-c-c
 
@@ -492,6 +556,18 @@
 
       call writehf(1,psfc,dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
     ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+    if( do_adapt_move )then
+      nvar = nvar+1
+      varname(nvar) = 'psmth'
+      vardesc(nvar) = 'psmth'
+      varunit(nvar) = 'Pa'
+      varlvls(nvar) = 0
+
+      call writehf(1,psmth,dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+    endif
 
       !c-c-c-c-c-c-c-c-c-c
 
@@ -619,6 +695,30 @@
       varlvls(nvar) = 0
 
       call writehf(1,dum1(ib,jb,4),dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+    if( idoles .and. cm1setup.eq.4 )then
+      nvar = nvar+1
+      varname(nvar) = 'cm0'
+      vardesc(nvar) = 'cm0'
+      varunit(nvar) = 'unitless'
+      varlvls(nvar) = 0
+
+      call writehf(1,cm0,dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+    endif
+
+      !c-c-c-c-c-c-c-c-c-c
+
+    IF( (cm1setup.eq.2.or.cm1setup.eq.4) .and. horizturb.eq.1 )THEN
+      nvar = nvar+1
+      varname(nvar) = 'tlh'
+      vardesc(nvar) = 'horiz lengthscale for turbulence scheme'
+      varunit(nvar) = 'm'
+      varlvls(nvar) = 0
+
+      call writehf(1,tlh,dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+    ENDIF
 
       !c-c-c-c-c-c-c-c-c-c
 
@@ -940,7 +1040,7 @@
       call comm_3s_end(  sadv,sw31,sw32,se31,se32,ss31,ss32,sn31,sn32,reqs_s)
 #endif
 
-    if( td_hadv.ge.1 .and. td_vadv.ge.1 )then
+    if( td_hadv.ge.1 .and. td_vadv.ge.1 .and. ptype.eq.91919 )then
 
       stop 111
 
@@ -1075,6 +1175,115 @@
 
       call writehf(nlevels,dum1(ib,jb,1),dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
 
+  !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+    ! radial and tangential velocity:
+    doit = .true.
+
+    docyl:  &
+    if( doit )then
+
+      if(myid.eq.0) print *,'  doazimavg,do_adapt_move = ',doazimavg,do_adapt_move
+
+    if( doazimavg .or. do_adapt_move )then
+
+              ! dum1 = u at s pts
+              ! dum2 = v at s pts
+              ! dum3 = ur at s pts
+              ! dum4 = vt at s pts
+
+        do k=1,klev(nlevels)
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = 0.5*(u3d(i,j,k)+u3d(i+1,j,k)) + umove
+          dum2(i,j,k) = 0.5*(v3d(i,j,k)+v3d(i,j+1,k)) + vmove
+          if( abs(crr(i,j)).lt.1.0e-4 )then
+            dum3(i,j,k)=0.0
+            dum4(i,j,k)=0.0
+          else
+            dum3(i,j,k)=dum2(i,j,k)*sin(cangle(i,j))+dum1(i,j,k)*cos(cangle(i,j))
+            dum4(i,j,k)=dum2(i,j,k)*cos(cangle(i,j))-dum1(i,j,k)*sin(cangle(i,j))
+          endif
+        enddo
+        enddo
+        enddo
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      nvar = nvar+1
+      varname(nvar) = 'urad'
+      vardesc(nvar) = 'radial velocity (grnd-rel)'
+      varunit(nvar) = 'm/s'
+      varlvls(nvar) = nlevels
+
+      do n=1,nlevels
+        k = klev(n)
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,n) = dum3(i,j,k)
+        enddo
+        enddo
+      enddo
+
+      call writehf(nlevels,dum1(ib,jb,1),dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      nvar = nvar+1
+      varname(nvar) = 'vtan'
+      vardesc(nvar) = 'tangential velocity (grnd-rel)'
+      varunit(nvar) = 'm/s'
+      varlvls(nvar) = nlevels
+
+      do n=1,nlevels
+        k = klev(n)
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,n) = dum4(i,j,k)
+        enddo
+        enddo
+      enddo
+
+      call writehf(nlevels,dum1(ib,jb,1),dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      ucrit = -2.0
+
+      ! inflow layer depth:
+      do j=1,nj
+      do i=1,ni
+        if( dum3(i,j,1).lt.ucrit )then
+          k = 1
+          do while( dum3(i,j,k).lt.ucrit .and. k.le.nk )
+            k = k+1
+          enddo
+          dum1(i,j,1) = zh(1,1,k-1)+(zh(1,1,k)-zh(1,1,k-1))  &
+                                  *(    ucrit-dum3(i,j,k-1))  &
+                                  /(dum3(i,j,k)-dum3(i,j,k-1))
+        else
+          dum1(i,j,1) = 0.0
+        endif
+      enddo
+      enddo
+
+      nvar = nvar+1
+      varname(nvar) = 'zinfl'
+      vardesc(nvar) = 'depth of inflow layer (u < -2 m/s)'
+      varunit(nvar) = 'm'
+      varlvls(nvar) = 0
+
+      call writehf(1,dum1(ib,jb,1),dat1,dat2,dat3,reqt,orec,nvar,varname,vardesc,varunit,myi1p,myi2p,myj1p,myj2p)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+    endif
+
+    ENDIF  docyl
+
+  !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+
       !c-c-c-c-c-c-c-c-c-c
 
       nvar = nvar+1
@@ -1168,27 +1377,31 @@
           string = 'cm1out_hf_%t6.dat'
           write(66,101) string
           write(66,102)
-          write(66,103) trim(cm1version)
+          if( outunits.eq.2 )then
+            write(66,113) trim(cm1version)
+          else
+            write(66,103) trim(cm1version)
+          endif
           write(66,104) grads_undef
             if(stretch_x.ge.1)then
               write(66,214) nx
               do i=1,nx
-                write(66,217) 0.001*( 0.5*(xfref(i)+xfref(i+1)) )
+                write(66,217) outunitconv*( 0.5*(xfref(i)+xfref(i+1)) )
               enddo
             else
-              write(66,204) nx,0.001*xh(1),0.001*dx
+              write(66,204) nx,outunitconv*xh(1),outunitconv*dx
             endif
             if(stretch_y.ge.1)then
               write(66,215) ny
               do j=1,ny
-                write(66,217) 0.001*( 0.5*(yfref(j)+yfref(j+1)) )
+                write(66,217) outunitconv*( 0.5*(yfref(j)+yfref(j+1)) )
               enddo
             else
-              write(66,205) ny,0.001*yh(1),0.001*dy
+              write(66,205) ny,outunitconv*yh(1),outunitconv*dy
             endif
             write(66,107) nlevels
             do k=1,nlevels
-              write(66,217) 0.001*sigma(klev(k))
+              write(66,217) outunitconv*sigma(klev(k))
             enddo
           write(66,108) nwriteh
           write(66,109) nvar
@@ -1213,18 +1426,23 @@
  101    format('dset ^',a)
  102    format('options template')
  103    format('title CM1 high-frequency output, using version ',a,'; units of x,y,z are km; time is generic, see variable mtime for actual times')
+ 113    format('title CM1 high-frequency output, using version ',a,'; units of x,y,z are meters; time is generic, see variable mtime for actual times')
  104    format('undef ',f10.1)
- 105    format('xdef ',i6,' linear ',f13.6,1x,f13.6)
+! 105    format('xdef ',i6,' linear ',f13.6,1x,f13.6)
+ 105    format('xdef ',i6,' linear ',es14.6e2,1x,es14.6e2)
  106    format('ydef ',i6,' linear 0 1')
  107    format('zdef ',i6,' levels')
- 217    format(2x,f13.6)
+! 217    format(2x,f13.6)
+ 217    format(2x,es14.6e2)
  108    format('tdef ',i10,' linear 00:00Z01JAN0001 1YR')
  109    format('vars ',i6)
  110    format(a12,2x,i6,' 99 ',a40,1x,a16)
  111    format('endvars')
 
- 204    format('xdef ',i6,' linear ',f13.6,1x,f13.6)
- 205    format('ydef ',i6,' linear ',f13.6,1x,f13.6)
+! 204    format('xdef ',i6,' linear ',f13.6,1x,f13.6)
+! 205    format('ydef ',i6,' linear ',f13.6,1x,f13.6)
+ 204    format('xdef ',i6,' linear ',es14.6e2,1x,es14.6e2)
+ 205    format('ydef ',i6,' linear ',es14.6e2,1x,es14.6e2)
 
  214    format('xdef ',i6,' levels ')
  215    format('ydef ',i6,' levels ')
@@ -1360,8 +1578,8 @@
 #else
       !-------------------- MPI section --------------------!
 
-      IF(myid.ne.nodemaster)THEN
-        ! ordinary processor ... send data to nodemaster:
+      IF(myid.ne.nodeleader)THEN
+        ! ordinary processor ... send data to nodeleader:
 !$omp parallel do default(shared)   &
 !$omp private(i,j)
         do j=1,nj
@@ -1369,17 +1587,17 @@
           dat1(i,j)=var(i,j)
         enddo
         enddo
-        call MPI_ISEND(dat1(1,1),d3is*d3js,MPI_REAL,nodemaster,tag,MPI_COMM_WORLD,reqs,ierr)
+        call MPI_ISEND(dat1(1,1),d3is*d3js,MPI_REAL,nodeleader,tag,MPI_COMM_WORLD,reqs,ierr)
         call MPI_WAIT(reqs,MPI_STATUS_IGNORE,ierr)
         ! DONE, ordinary processors
       ELSE
-        ! begin nodemaster section:
+        ! begin nodeleader section:
           ! start receives from all other processors on a node:
           do proc=myid+1,myid+(ppnode-1)
             call MPI_IRECV(dat3(1,1,proc),d3is*d3js,MPI_REAL,proc,tag,MPI_COMM_WORLD,reqt(proc-myid),ierr)
           enddo
         IF(myid.ne.0)THEN
-          ! nodemaster, not proc 0:
+          ! nodeleader, not proc 0:
 !$omp parallel do default(shared)  &
 !$omp private(i,j)
           do j=1,nj
@@ -1393,10 +1611,10 @@
           call MPI_ISEND(dat3(1,1,myid),d3is*d3js*ppnode,MPI_REAL,0,tag+1,MPI_COMM_WORLD,reqs,ierr)
           ! wait for send to finish:
           call MPI_WAIT(reqs,MPI_STATUS_IGNORE,ierr)
-          ! DONE, nodemaster (not proc 0)
+          ! DONE, nodeleader (not proc 0)
         ELSE
           ! proc 0:
-            ! start receives from other nodemasters:
+            ! start receives from other nodeleaders:
             do nn = 1,(nodes-1)
               if( nn.le.mynode )then
                 proc = (nn-1)*ppnode
@@ -1432,7 +1650,7 @@
               enddo
               enddo
             else
-              ! data from other nodemasters:
+              ! data from other nodeleaders:
               index2 = index-(ppnode-1)
               if( index2.le.mynode )then
                 index2 = index2-1

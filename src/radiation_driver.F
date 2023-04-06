@@ -15,7 +15,7 @@
                    swupt,swuptc,swdnt,swdntc,swupb,swupbc,swdnb,swdnbc,                &
                    lwcf,swcf,coszr,                                                    &
                    xice,xsnow,xlat,xlong,coszen,swddir,swddni,swddif,hrang,            &
-                   cldfra1_flag,dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,               &
+                   cldfra1_flag,dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,dum9,dum10,    &
                    prs0,pi0,th0,prs,ppi,tha,rho,qa,                                    &
                    rth0s,prs0s,rho0s,tsk,albd,glw,gsw,emiss,xland,nstep,               &
                    qc_bl,qi_bl,cldfra_bl)
@@ -49,7 +49,7 @@
       real, intent(inout), dimension(ibr:ier,jbr:jer) :: lwcf,swcf,coszr
       real, intent(inout), dimension(ibr:ier,jbr:jer) :: xice,xsnow,xlat,xlong,coszen,swddir,swddni,swddif,hrang
       integer, intent(inout), dimension(ibr:ier,jbr:jer,kbr:ker) :: cldfra1_flag
-      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8
+      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,dum9,dum10
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: prs0,pi0,th0
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: prs,ppi,tha,rho
       real, intent(inout), dimension(ibm:iem,jbm:jem,kbm:kem,numq) :: qa
@@ -322,6 +322,10 @@
             dum3(i,j,k) = (th0(i,j,k)+tha(i,j,k))*dum4(i,j,k)
             dum1(i,j,k) = c1(i,j,k)*prs(i,j,k-1)+c2(i,j,k)*prs(i,j,k)
             dum2(i,j,k) = c1(i,j,k)*dum3(i,j,k-1)+c2(i,j,k)*dum3(i,j,k)
+            dum7(i,j,k) = 0.0
+            dum8(i,j,k) = 0.0
+            dum9(i,j,k) = 0.0
+            dum10(i,j,k) = 0.0
           enddo
           enddo
           enddo
@@ -356,12 +360,93 @@
           enddo
           enddo
 
+          f_qs = .false.
+          f_qg = .false.
+          f_qi = .false.
+          f_qc = .false.
+
+          ! store qs in dum7:
+          if( nqs.ge.1 )then
+            f_qs = .true.
+            !$omp parallel do default(shared)   &
+            !$omp private(i,j,k)
+            do k=1,nk
+            do j=1,nj
+            do i=1,ni
+              dum7(i,j,k) = qa(i,j,k,nqs)
+            enddo
+            enddo
+            enddo
+          endif
+
+          ! store qg in dum8:
+          if( nqg.ge.1 )then
+            f_qg = .true.
+            !$omp parallel do default(shared)   &
+            !$omp private(i,j,k)
+            do k=1,nk
+            do j=1,nj
+            do i=1,ni
+              dum8(i,j,k) = qa(i,j,k,nqg)
+            enddo
+            enddo
+            enddo
+          endif
+
+          ! store qi in dum9:
+          if( nqi.ge.1 )then
+            f_qi = .true.
+            !$omp parallel do default(shared)   &
+            !$omp private(i,j,k)
+            do k=1,nk
+            do j=1,nj
+            do i=1,ni
+              dum9(i,j,k) = qa(i,j,k,nqi)
+            enddo
+            enddo
+            enddo
+            if( nqi2.ge.1 )then
+              !$omp parallel do default(shared)   &
+              !$omp private(i,j,k)
+              do k=1,nk
+              do j=1,nj
+              do i=1,ni
+                dum9(i,j,k) = dum9(i,j,k)+qa(i,j,k,nqi2)
+              enddo
+              enddo
+              enddo
+            endif
+            if( nqi3.ge.1 )then
+              !$omp parallel do default(shared)   &
+              !$omp private(i,j,k)
+              do k=1,nk
+              do j=1,nj
+              do i=1,ni
+                dum9(i,j,k) = dum9(i,j,k)+qa(i,j,k,nqi3)
+              enddo
+              enddo
+              enddo
+            endif
+          endif
+
+          ! store qc in dum10:
+          if( nqc.ge.1 )then
+            f_qc = .true.
+            !$omp parallel do default(shared)   &
+            !$omp private(i,j,k)
+            do k=1,nk
+            do j=1,nj
+            do i=1,ni
+              dum10(i,j,k) = qa(i,j,k,nqc)
+            enddo
+            enddo
+            enddo
+          endif
+
+          ! all microphysics schemes have qv,qr
           f_qv = .true.
-          f_qc = .true.
           f_qr = .true.
-          f_qi = .true.
-          f_qs = .true.
-          f_qg = .true.
+
           warm_rain = .false.
           is_CAMMGMP_used = .false.
 
@@ -369,6 +454,13 @@
           has_reqi = 0
           has_reqs = 0
 
+          if( ptype.eq.3 )then
+            ! thompson scheme
+            mp_physics = 8
+            has_reqc = 1
+            has_reqi = 1
+            has_reqs = 1
+          endif
           if( ptype.eq.5 )then
             ! morrison scheme = 10
             ! use eff arrays from Morrison scheme:
@@ -377,13 +469,15 @@
             has_reqi = 1
             has_reqs = 1
           endif
-          if( ptype.eq.50 .or. ptype.eq.51 .or. ptype.eq.52 )then
+          if( ptype.eq.50 .or. ptype.eq.51 .or. ptype.eq.52 .or. ptype.eq.53 )then
             ! P3 microphysics
             ! use eff arrays from P3 scheme:
             mp_physics = ptype
             has_reqc = 1
             has_reqi = 1
             has_reqs = 0
+            f_qs = .false.
+            f_qg = .false.
           endif
           if( ptype.eq.55 )then
             ! ISHMAEL scheme = 55
@@ -392,6 +486,8 @@
             has_reqc = 1
             has_reqi = 1
             has_reqs = 0
+            f_qs = .false.
+            f_qg = .false.
           endif
 
           icloud = 1
@@ -459,37 +555,18 @@
              enddo
              enddo
 
-      if( ptype.eq.8 .or. ptype.eq.50 .or. ptype.eq.51 .or. ptype.eq.52 )then
-          !$omp parallel do default(shared)   &
-          !$omp private(i,j)
-          do k=1,nk
-          do j=1,nj
-          do i=1,ni
-            dum7(i,j,k)=0.0
-            dum8(i,j,k)=0.0
-          enddo
-          enddo
-          enddo
+      ! NOTE: qs is stored in dum7
+      !       qg is stored in dum8
+      !       qi is stored in dum9
+      !       qc is stored in dum10
+
         CALL cal_cldfra1(CLDFRA=CLDFRA,                                             &
-                  QV=qa(ib,jb,kb,nqv),QC=qa(ib,jb,kb,nqc),                          &
-                  QI=qa(ib,jb,kb,nqi),QS=dum8,                                      &
+                  QV=qa(ib,jb,kb,nqv),QC=dum10,QI=dum9,QS=dum7,                     &
                    F_QV=F_QV,F_QC=F_QC,F_QI=F_QI,F_QS=F_QS,t_phy=dum3,p_phy=prs,    &
                    mp_physics=mp_physics,cldfra1_flag=cldfra1_flag,                 &
                   ids=1  ,ide=ni+1 , jds= 1 ,jde=nj+1 , kds=1  ,kde=nk+1 ,          &
                   ims=ib ,ime=ie   , jms=jb ,jme=je   , kms=kb ,kme=ke ,            &
                   its=1  ,ite=ni   , jts=1  ,jte=nj   , kts=1  ,kte=nk )
-          f_qs = .false.
-          f_qg = .false.
-      else
-        CALL cal_cldfra1(CLDFRA=CLDFRA,                                             &
-                  QV=qa(ib,jb,kb,nqv),QC=qa(ib,jb,kb,nqc),                          &
-                  QI=qa(ib,jb,kb,nqi),QS=qa(ib,jb,kb,nqs),                          &
-                   F_QV=F_QV,F_QC=F_QC,F_QI=F_QI,F_QS=F_QS,t_phy=dum3,p_phy=prs,    &
-                   mp_physics=mp_physics,cldfra1_flag=cldfra1_flag,                 &
-                  ids=1  ,ide=ni+1 , jds= 1 ,jde=nj+1 , kds=1  ,kde=nk+1 ,          &
-                  ims=ib ,ime=ie   , jms=jb ,jme=je   , kms=kb ,kme=ke ,            &
-                  its=1  ,ite=ni   , jts=1  ,jte=nj   , kts=1  ,kte=nk )
-      endif
 
   !-----------------------------------------------------------------------------------------
 
@@ -497,7 +574,7 @@
     !   (code is from WRFV4.2.1 radiation_driver)
 
            ! MYNN PBL only:
-        if( cm1setup.eq.2 )then
+        if( idopbl )then
         if( ipbl.eq.4 .or. ipbl.eq.5 )then
         if( imoist.eq.1 )then
            if( myid.eq.0 ) print *,'  ... icloud_bl in radiation_driver ... '
@@ -512,29 +589,18 @@
                  ENDDO
               ENDIF
 
-            if( nqc.ge.1 )then
               DO k = 1,nk
               DO j = 1,nj
               DO i = 1,ni
-                 IF (qa(i,j,k,nqc) < 1.E-6 .AND. CLDFRA_BL(i,j,k) > 0.001) THEN
-                     qa(i,j,k,nqc)=qa(i,j,k,nqc) + QC_BL(i,j,k)*CLDFRA_BL(i,j,k)
+                 IF (dum10(i,j,k) < 1.E-6 .AND. CLDFRA_BL(i,j,k) > 0.001) THEN
+                     dum10(i,j,k)=dum10(i,j,k) + QC_BL(i,j,k)*CLDFRA_BL(i,j,k)
+                 ENDIF
+                 IF (dum9(i,j,k) < 1.E-8 .AND. CLDFRA_BL(i,j,k) > 0.001) THEN
+                    dum9(i,j,k)=dum9(i,j,k) + QI_BL(i,j,k)*CLDFRA_BL(i,j,k)
                  ENDIF
               ENDDO
               ENDDO
               ENDDO
-            endif
-
-            if( nqi.ge.1 )then
-              DO k = 1,nk
-              DO j = 1,nj
-              DO i = 1,ni
-                 IF (qa(i,j,k,nqi) < 1.E-8 .AND. CLDFRA_BL(i,j,k) > 0.001) THEN
-                    qa(i,j,k,nqi)=qa(i,j,k,nqi) + QI_BL(i,j,k)*CLDFRA_BL(i,j,k)
-                 ENDIF
-              ENDDO
-              ENDDO
-              ENDDO
-            endif
 
            ENDIF
         endif
@@ -543,8 +609,12 @@
 
   !-----------------------------------------------------------------------------------------
 
+      ! NOTE: qs is stored in dum7
+      !       qg is stored in dum8
+      !       qi is stored in dum9
+      !       qc is stored in dum10
+
              if(myid.eq.0) print *,'  rrtmg_lwrad '
-      if( ptype.eq.8 .or. ptype.eq.50 .or. ptype.eq.51 .or. ptype.eq.52 )then
              CALL RRTMG_LWRAD(                                      &
                   RTHRATENLW=lwten,lwtenc=lwtenc,                   &
                   LWUPT=LWUPT,LWUPTC=LWUPTC,                        &
@@ -560,51 +630,19 @@
                   cldovrlp=cldovrlp,                                &
                   IS_CAMMGMP_USED=is_cammgmp_used,                  &
                   XLAND=XLAND,XICE=XICE,SNOW=XSNOW,                 &
-                  QV3D=qa(ib,jb,kb,nqv),QC3D=qa(ib,jb,kb,nqc),QR3D=qa(ib,jb,kb,nqr),     &
-                  QI3D=qa(ib,jb,kb,nqi),QS3D=dum7            ,QG3D=dum8            ,     &
+                  QV3D=qa(ib,jb,kb,nqv),QC3D=dum10           ,QR3D=qa(ib,jb,kb,nqr),     &
+                  QI3D=dum9            ,QS3D=dum7            ,QG3D=dum8            ,     &
                   O3INPUT=O3INPUT,O33D=o30,                         &
                   F_QV=F_QV,F_QC=F_QC,F_QR=F_QR,                    &
                   F_QI=F_QI,F_QS=F_QS,F_QG=F_QG,                    &
                   RE_CLOUD=effc,RE_ICE=effi,RE_SNOW=effs,  & ! G. Thompson
                   has_reqc=has_reqc,has_reqi=has_reqi,has_reqs=has_reqs, & ! G. Thompson
                   YR=YR,JULIAN=JULIAN,                              &
-    !  buh2 !
                   calc_clean_atm_diag=calc_clean_atm_diag,          &
                   ids=1  ,ide=ni+1 , jds= 1 ,jde=nj+1 , kds=1  ,kde=nk+1 ,          &
                   ims=ib ,ime=ie   , jms=jb ,jme=je   , kms=kb ,kme=ke ,            &
                   its=1  ,ite=ni   , jts=1  ,jte=nj   , kts=1  ,kte=nk ,            &
                   mp_physics=mp_physics,co2out=co2out               )
-      else
-             CALL RRTMG_LWRAD(                                      &
-                  RTHRATENLW=lwten,lwtenc=lwtenc,                   &
-                  LWUPT=LWUPT,LWUPTC=LWUPTC,                        &
-                  LWDNT=LWDNT,LWDNTC=LWDNTC,                        &
-                  LWUPB=LWUPB,LWUPBC=LWUPBC,                        &
-                  LWDNB=LWDNB,LWDNBC=LWDNBC,                        &
-                  GLW=GLW,OLR=dum6(ib,jb,1),LWCF=LWCF,              &
-                  EMISS=EMISS,                                      &
-                  P8W=dum1,P3D=prs,PI3D=dum4,DZ8W=dum5,TSK=tsk,T3D=dum3,    &
-                  T8W=dum2,RHO3D=rho,R=rd,G=G,                      &
-                  ICLOUD=icloud,WARM_RAIN=warm_rain,                &
-                  CLDFRA3D=CLDFRA,                                  &
-                  cldovrlp=cldovrlp,                                &
-                  IS_CAMMGMP_USED=is_cammgmp_used,                  &
-                  XLAND=XLAND,XICE=XICE,SNOW=XSNOW,                 &
-                  QV3D=qa(ib,jb,kb,nqv),QC3D=qa(ib,jb,kb,nqc),QR3D=qa(ib,jb,kb,nqr),     &
-                  QI3D=qa(ib,jb,kb,nqi),QS3D=qa(ib,jb,kb,nqs),QG3D=qa(ib,jb,kb,nqg),     &
-                  O3INPUT=O3INPUT,O33D=o30,                         &
-                  F_QV=F_QV,F_QC=F_QC,F_QR=F_QR,                    &
-                  F_QI=F_QI,F_QS=F_QS,F_QG=F_QG,                    &
-                  RE_CLOUD=effc,RE_ICE=effi,RE_SNOW=effs,  & ! G. Thompson
-                  has_reqc=has_reqc,has_reqi=has_reqi,has_reqs=has_reqs, & ! G. Thompson
-                  YR=YR,JULIAN=JULIAN,                              &
-    !  buh2 !
-                  calc_clean_atm_diag=calc_clean_atm_diag,          &
-                  ids=1  ,ide=ni+1 , jds= 1 ,jde=nj+1 , kds=1  ,kde=nk+1 ,          &
-                  ims=ib ,ime=ie   , jms=jb ,jme=je   , kms=kb ,kme=ke ,            &
-                  its=1  ,ite=ni   , jts=1  ,jte=nj   , kts=1  ,kte=nk ,            &
-                  mp_physics=mp_physics,co2out=co2out               )
-      endif
 
 
             !$omp parallel do default(shared)  &
@@ -628,8 +666,12 @@
 
              radt_min = dtrad/60.0
 
+      ! NOTE: qs is stored in dum7
+      !       qg is stored in dum8
+      !       qi is stored in dum9
+      !       qc is stored in dum10
+
              if(myid.eq.0) print *,'  rrtmg_swrad '
-      if( ptype.eq.8 .or. ptype.eq.50 .or. ptype.eq.51 .or. ptype.eq.52 )then
              CALL RRTMG_SWRAD(                                         &
                      RTHRATENSW=swten,swtenc=swtenc,                   &
                      SWUPT=SWUPT,SWUPTC=SWUPTC,                        &
@@ -649,8 +691,8 @@
                      ICLOUD=icloud,WARM_RAIN=warm_rain,                &
                      cldovrlp=cldovrlp,                                &
                      XLAND=XLAND,XICE=XICE,SNOW=XSNOW,                 &
-                  QV3D=qa(ib,jb,kb,nqv),QC3D=qa(ib,jb,kb,nqc),QR3D=qa(ib,jb,kb,nqr),     &
-                  QI3D=qa(ib,jb,kb,nqi),QS3D=dum7            ,QG3D=dum8            ,     &
+                  QV3D=qa(ib,jb,kb,nqv),QC3D=dum10           ,QR3D=qa(ib,jb,kb,nqr),     &
+                  QI3D=dum9            ,QS3D=dum7            ,QG3D=dum8            ,     &
                   O3INPUT=O3INPUT,O33D=o30,                         &
                      AER_OPT=AER_OPT,               &
                      no_src=no_src_types,  &
@@ -669,47 +711,6 @@
                      swddir=swddir,swddni=swddni,swddif=swddif,         & ! jararias 2013/08/10
                      swdownc=swdownc, swddnic=swddnic, swddirc=swddirc, &
                      xcoszen=coszen,yr=yr,julian=julian,mp_physics=mp_physics,co2out=co2out ) ! jararias 2013/08/14
-      else
-             CALL RRTMG_SWRAD(                                         &
-                     RTHRATENSW=swten,swtenc=swtenc,                   &
-                     SWUPT=SWUPT,SWUPTC=SWUPTC,                        &
-                     SWDNT=SWDNT,SWDNTC=SWDNTC,                        &
-                     SWUPB=SWUPB,SWUPBC=SWUPBC,                        &
-                     SWDNB=SWDNB,SWDNBC=SWDNBC,                        &
-                     SWCF=SWCF,GSW=GSW,                                &
-                     XTIME=XTIME,GMT=GMT,XLAT=XLAT,XLONG=XLONG,        &
-                     RADT=radt_min,DEGRAD=DEGRAD,DECLIN=DECLIN,        &
-                     COSZR=COSZR,JULDAY=JULDAY,SOLCON=SOLCON,          &
-                     ALBEDO=ALBD,t3d=dum3,t8w=dum2,TSK=TSK,            &
-                     p3d=prs,p8w=dum1,pi3d=dum4,rho3d=rho,             &
-                     dz8w=dum5,                                        &
-                     CLDFRA3D=CLDFRA,                                  &
-                     IS_CAMMGMP_USED=is_cammgmp_used,                  &
-                     R=rd,G=G,              &
-                     ICLOUD=icloud,WARM_RAIN=warm_rain,                &
-                     cldovrlp=cldovrlp,                                &
-                     XLAND=XLAND,XICE=XICE,SNOW=XSNOW,                 &
-                  QV3D=qa(ib,jb,kb,nqv),QC3D=qa(ib,jb,kb,nqc),QR3D=qa(ib,jb,kb,nqr),     &
-                  QI3D=qa(ib,jb,kb,nqi),QS3D=qa(ib,jb,kb,nqs),QG3D=qa(ib,jb,kb,nqg),     &
-                  O3INPUT=O3INPUT,O33D=o30,                         &
-                     AER_OPT=AER_OPT,               &
-                     no_src=no_src_types,  &
-                     SF_SURFACE_PHYSICS=sf_surface_physics,            &  !Zhenxin ssib sw_phy   (06/2010)
-                     F_QV=f_qv,F_QC=f_qc,F_QR=f_qr,                    &
-                     F_QI=f_qi,F_QS=f_qs,F_QG=f_qg,                    &
-                     RE_CLOUD=effc,RE_ICE=effi,RE_SNOW=effs,  & ! G. Thompson
-                     has_reqc=has_reqc,has_reqi=has_reqi,has_reqs=has_reqs, & ! G. Thompson
-                     calc_clean_atm_diag=calc_clean_atm_diag,          &
-                  ids=1  ,ide=ni+1 , jds= 1 ,jde=nj+1 , kds=1  ,kde=nk+1 ,          &
-                  ims=ib ,ime=ie   , jms=jb ,jme=je   , kms=kb ,kme=ke ,            &
-                  its=1  ,ite=ni   , jts=1  ,jte=nj   , kts=1  ,kte=nk ,            &
-                     tauaer3d_sw=tauaer_sw,                             & ! jararias 2013/11
-                     ssaaer3d_sw=ssaaer_sw,                             & ! jararias 2013/11
-                     asyaer3d_sw=asyaer_sw,                             & ! jararias 2013/11
-                     swddir=swddir,swddni=swddni,swddif=swddif,         & ! jararias 2013/08/10
-                     swdownc=swdownc, swddnic=swddnic, swddirc=swddirc, &
-                     xcoszen=coszen,yr=yr,julian=julian,mp_physics=mp_physics,co2out=co2out ) ! jararias 2013/08/14
-      endif
 
             if( nstep.le.1 .and. myid.eq.0 ) print *,'  co2 = ',co2out
 
@@ -975,6 +976,16 @@
                weight = 0.
             ELSE
                weight = (QI(i,j,k)+QS(i,j,k)) / QCLD
+            ENDIF
+         ENDIF
+
+! for P3, mp option 50 or 51
+         IF ( F_QI .and. F_QC .and. .not. F_QS) THEN
+            QCLD = QI(i,j,k)+QC(i,j,k)
+            IF (QCLD .LT. QCLDMIN) THEN
+               weight = 0.
+            ELSE
+               weight = (QI(i,j,k)) / QCLD
             ENDIF
          ENDIF
 

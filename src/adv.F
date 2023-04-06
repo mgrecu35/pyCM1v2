@@ -661,7 +661,9 @@
 !----------------------------------------------------------------
 !  Diagnostics:
 
+  doingsbud:  &
   IF( dobud .and. nrk.eq.nrkmax )THEN
+  if( sd_hadv.ge.1 .and. sd_vadv.ge.1 )then
     !--------
     ! advective tendencies:
     IF(.not.terrain_flag)THEN
@@ -710,6 +712,7 @@
         enddo
         enddo
     ENDIF
+  endif
     !--------
     IF( sd_lsw.ge.1 )THEN
       ! large-scale subsidence:
@@ -724,7 +727,7 @@
       enddo
     ENDIF
     !--------
-    IF( diffit.eq.1 .and. sd_hediff.ge.1 )THEN
+    IF( diffit.eq.1 .and. sd_hediff.ge.1 .and. sd_hadv.ge.1 )THEN
       ! subtract-off diffusion from advection:
       !$omp parallel do default(shared)   &
       !$omp private(i,j,k)
@@ -738,7 +741,7 @@
     ENDIF
     !--------
     gethidiffs:  &
-    IF( sd_hidiff.ge.1 )THEN
+    IF( sd_hidiff.ge.1 .and. sd_hadv.ge.1 )THEN
       ! horiz implicit diffusion tendency:
       ! step1: get non-diffusive advective fluxes:
       ! buh31a !
@@ -830,7 +833,7 @@
     ENDIF  gethidiffs
     !--------
     getvidiffs:  &
-    IF( sd_vidiff.ge.1 )THEN
+    IF( sd_vidiff.ge.1 .and. sd_vadv.ge.1 )THEN
       ! vert implicit diffusion tendency:
       ! step1: get non-diffusive advective fluxes:
       ! buh32a !
@@ -891,7 +894,7 @@
     ENDIF
     ENDIF  getvidiffs
     !--------
-  ENDIF
+  ENDIF  doingsbud
 
 !----------------------------------------------------------------
  
@@ -1397,7 +1400,6 @@
           do k=1,kmaxib
           do j=1,nj
           do i=i1,i2
-            ! yo1 !
             if( bndy(i,j,k-1) .and. (.not.bndy(i,j,k)) .and. (.not.bndy(i-1,j,k)) .and. (.not.bndy(i-1,j,k-1)) )then
               ! upper-left corner:
               ! Note: advective form is used here, so remove the piece of advz from divx
@@ -1537,7 +1539,9 @@
 !----------------------------------------------------------------
 !  Diagnostics:
 
+  doingubud:  &
   IF( doubud .and. nrk.eq.nrkmax )THEN
+  if( ud_hadv.ge.1 .and. ud_vadv.ge.1 )then
     !--------
     ! advective tendencies:
     IF(.not.terrain_flag)THEN
@@ -1600,6 +1604,7 @@
         enddo
         enddo
     ENDIF
+  endif
     !--------
     IF( ud_lsw.ge.1 )THEN
       !$omp parallel do default(shared)   &
@@ -1613,8 +1618,8 @@
       enddo
     ENDIF
     !--------
+    IF( ud_hediff.ge.1 .and. ud_hadv.ge.1 )THEN
     IF( idiff.ge.1 .and. difforder.eq.6 )THEN
-    IF( ud_hediff.ge.1 )THEN
       ! subtract-off diffusion from advection:
       !$omp parallel do default(shared)   &
       !$omp private(i,j,k)
@@ -1629,7 +1634,7 @@
     ENDIF
     !--------
     gethidiffu:  &
-    IF( ud_hidiff.ge.1 )THEN
+    IF( ud_hidiff.ge.1 .and. ud_hadv.ge.1 )THEN
       ! horiz implicit diffusion tendency:
       ! step1: get non-diffusive advective fluxes:
       ! buh31a !
@@ -1727,7 +1732,7 @@
     ENDIF  gethidiffu
     !--------
     getvidiffu:  &
-    IF( ud_vidiff.ge.1 )THEN
+    IF( ud_vidiff.ge.1 .and. ud_vadv.ge.1 )THEN
       ! vert implicit diffusion tendency:
       ! step1: get non-diffusive advective fluxes:
       ! buh32a !
@@ -1811,7 +1816,7 @@
     ENDIF
     ENDIF  getvidiffu
     !--------
-  ENDIF
+  ENDIF  doingubud
 
 !----------------------------------------------------------------
 
@@ -2335,7 +2340,6 @@
           do k=1,kmaxib
           do j=j1,j2
           do i=1,ni
-            !     ! yo2 !
             if( bndy(i,j,k-1) .and. (.not.bndy(i,j,k)) .and. (.not.bndy(i,j-1,k)) .and. (.not.bndy(i,j-1,k-1)) )then
               ! upper-left corner:
               ! Note: advective form is used here, so remove the piece of advz from divx
@@ -2457,7 +2461,9 @@
 !----------------------------------------------------------------
 !  Diagnostics:
 
+  doingvbud:  &
   IF( dovbud .and. nrk.eq.nrkmax )THEN
+  if( vd_hadv.ge.1 .and. vd_vadv.ge.1 )THEN
     !--------
     ! advective tendencies:
     IF(.not.terrain_flag)THEN
@@ -2518,6 +2524,7 @@
         enddo
         enddo
     ENDIF
+  endif
     !--------
     IF( vd_lsw.ge.1 )THEN
       !$omp parallel do default(shared)   &
@@ -2532,7 +2539,7 @@
     ENDIF
     !--------
     IF( idiff.ge.1 .and. difforder.eq.6 )THEN
-    IF( vd_hediff.ge.1 )THEN
+    IF( vd_hediff.ge.1 .and. vd_hadv.ge.1 )THEN
       ! subtract-off diffusion from advection:
       !$omp parallel do default(shared)   &
       !$omp private(i,j,k)
@@ -2547,7 +2554,7 @@
     ENDIF
     !--------
     gethidiffv:  &
-    IF( vd_hidiff.ge.1 )THEN
+    IF( vd_hidiff.ge.1 .and. vd_hadv.ge.1 )THEN
       ! horiz implicit diffusion tendency:
       ! step1: get non-diffusive advective fluxes:
       ! buh31a !
@@ -2656,7 +2663,7 @@
     ENDIF  gethidiffv
     !--------
     getvidiffv:  &
-    IF( vd_vidiff.ge.1 )THEN
+    IF( vd_vidiff.ge.1 .and. vd_vadv.ge.1 )THEN
       ! vert implicit diffusion tendency:
       ! step1: get non-diffusive advective fluxes:
       ! buh32a !
@@ -2740,7 +2747,7 @@
     ENDIF
     ENDIF  getvidiffv
     !--------
-  ENDIF
+  ENDIF  doingvbud
 
 !----------------------------------------------------------------
 
@@ -3298,7 +3305,6 @@
           do k=2,kmaxib
           do j=1,nj
           do i=1,ni
-            ! yo1 !
             if( bndy(i+1,j,k-1) .and. (.not.bndy(i,j,k)) .and. (.not.bndy(i,j,k-1)) .and. (.not.bndy(i+1,j,k)) )then
               ! upper-left corner, x dir:
               ! Note: advective form is used here, so remove the piece of advx from divx
@@ -3315,7 +3321,6 @@
                             -w3d(i,j,k)*( c2(1,1,k)*(rru(i+1,j,k  )-rru(i,j,k  ))*rdx*uh(i)    &
                                          +c1(1,1,k)*(rru(i+1,j,k-1)-rru(i,j,k-1))*rdx*uh(i)  )
             endif
-            ! yo2 !
             if( bndy(i,j+1,k-1) .and. (.not.bndy(i,j,k)) .and. (.not.bndy(i,j,k-1)) .and. (.not.bndy(i,j+1,k)) )then
               ! upper-left corner, y dir:
               ! Note: advective form is used here, so remove the piece of advx from divx
@@ -3355,7 +3360,9 @@
 !----------------------------------------------------------------
 !  Diagnostics:
 
+  doingwbud:  &
   IF( dowbud .and. nrk.eq.nrkmax )THEN
+  if( wd_hadv.ge.1 .and. wd_vadv.ge.1 )then
     !--------
     ! advective tendencies:
     IF(.not.terrain_flag)THEN
@@ -3418,9 +3425,10 @@
         enddo
         enddo
     ENDIF
+  endif
     !--------
     IF( idiff.ge.1 .and. difforder.eq.6 )THEN
-    IF( wd_hediff.ge.1 )THEN
+    IF( wd_hediff.ge.1 .and. wd_hadv.ge.1 )THEN
       ! subtract-off diffusion from advection:
       !$omp parallel do default(shared)   &
       !$omp private(i,j,k)
@@ -3435,7 +3443,7 @@
     ENDIF
     !--------
     gethidiffw:  &
-    IF( wd_hidiff.ge.1 )THEN
+    IF( wd_hidiff.ge.1 .and. wd_hadv.ge.1 )THEN
       ! horiz implicit diffusion tendency:
       ! step1: get non-diffusive advective fluxes:
       ! buh31 !
@@ -3533,7 +3541,7 @@
     ENDIF  gethidiffw
     !--------
     getvidiffw:  &
-    IF( wd_vidiff.ge.1 )THEN
+    IF( wd_vidiff.ge.1 .and. wd_vadv.ge.1 )THEN
       ! vert implicit diffusion tendency:
       ! step1: get non-diffusive advective fluxes:
       ! buh32 !
@@ -3590,7 +3598,7 @@
     ENDIF
     ENDIF  getvidiffw
     !--------
-  ENDIF
+  ENDIF  doingwbud
 
 !----------------------------------------------------------------
 

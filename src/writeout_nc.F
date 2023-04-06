@@ -240,7 +240,7 @@
 
       call disp_err( nf90_def_var(ncid,"ztop",nf90_float,oneid,varid) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"long_name","height at top of model") , .true. )
-      call disp_err( nf90_put_att(ncid,varid,"units","km") , .true. )
+      call disp_err( nf90_put_att(ncid,varid,"units",trim(aunit)) , .true. )
 
       call disp_err( nf90_def_var(ncid,"time",nf90_float,timeid,varid) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"long_name","time since beginning of simulation") , .true. )
@@ -249,32 +249,32 @@
 
       call disp_err( nf90_def_var(ncid,"xh",nf90_float,xhid,varid) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"long_name","west-east location of scalar grid points") , .true. )
-      call disp_err( nf90_put_att(ncid,varid,"units","km") , .true. )
+      call disp_err( nf90_put_att(ncid,varid,"units",trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"axis","X") , .true. )
 
       call disp_err( nf90_def_var(ncid,"xf",nf90_float,xfid,varid) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"long_name","west-east location of staggered u grid points") , .true. )
-      call disp_err( nf90_put_att(ncid,varid,"units","km") , .true. )
+      call disp_err( nf90_put_att(ncid,varid,"units",trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"axis","X") , .true. )
 
       call disp_err( nf90_def_var(ncid,"yh",nf90_float,yhid,varid) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"long_name","south-north location of scalar grid points") , .true. )
-      call disp_err( nf90_put_att(ncid,varid,"units","km") , .true. )
+      call disp_err( nf90_put_att(ncid,varid,"units",trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"axis","Y") , .true. )
 
       call disp_err( nf90_def_var(ncid,"yf",nf90_float,yfid,varid) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"long_name","south-north location of staggered v grid points") , .true. )
-      call disp_err( nf90_put_att(ncid,varid,"units","km") , .true. )
+      call disp_err( nf90_put_att(ncid,varid,"units",trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"axis","Y") , .true. )
 
       call disp_err( nf90_def_var(ncid,"zh",nf90_float,zhid,varid) , .true. ) !ORF make zh
       call disp_err( nf90_put_att(ncid,varid,"long_name","nominal height of scalar grid points") , .true. )
-      call disp_err( nf90_put_att(ncid,varid,"units","km") , .true. )
+      call disp_err( nf90_put_att(ncid,varid,"units",trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"axis","Z") , .true. )
 
       call disp_err( nf90_def_var(ncid,"zf",nf90_float,zfid,varid) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"long_name","nominal height of staggered w grid points") , .true. )
-      call disp_err( nf90_put_att(ncid,varid,"units","km") , .true. )
+      call disp_err( nf90_put_att(ncid,varid,"units",trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,varid,"axis","Z") , .true. )
 
 
@@ -375,11 +375,11 @@
       call disp_err( nf90_put_att(ncid, NF90_GLOBAL, 'Conventions','CF-1.7') , .true. )
       call disp_err( nf90_put_att(ncid,nf90_global,"missing_value",grads_undef) , .true. )
 
-      call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'x_units','km') , .true. )
+      call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'x_units',trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'x_label','x') , .true. )
-      call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'y_units','km') , .true. )
+      call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'y_units',trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'y_label','y') , .true. )
-      call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'z_units','km') , .true. )
+      call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'z_units',trim(aunit)) , .true. )
       call disp_err( nf90_put_att(ncid,NF90_GLOBAL,'z_label','z') , .true. )
 
       call disp_err( nf90_put_att(ncid,NF90_GLOBAL,"nx",nx) , .true. )
@@ -467,17 +467,17 @@
     ENDIF
 
       call disp_err( nf90_inq_varid(ncid,'ztop',varid) , .true. )
-      call disp_err( nf90_put_var(ncid,varid,0.001*ztop) , .true. )
+      call disp_err( nf90_put_var(ncid,varid,outunitconv*ztop) , .true. )
 
         call disp_err( nf90_inq_varid(ncid,'xh',varid) , .true. )
     if( output_filetype.eq.1 .or. output_filetype.eq.2 )then
       do i=1,nx
-        dumx(i) = 0.001*0.5*(xfref(i)+xfref(i+1))
+        dumx(i) = outunitconv*0.5*(xfref(i)+xfref(i+1))
       enddo
       call disp_err( nf90_put_var(ncid,varid,dumx,(/1/),(/nx/)) , .true. )
     elseif( output_filetype.eq.3 )then
       do i=1,ni
-        dumx(i) = 0.001*xh(i)
+        dumx(i) = outunitconv*xh(i)
       enddo
       call disp_err( nf90_put_var(ncid,varid,dumx,(/1/),(/ni/)) , .true. )
     endif
@@ -485,12 +485,12 @@
         call disp_err( nf90_inq_varid(ncid,'xf',varid) , .true. )
     if( output_filetype.eq.1 .or. output_filetype.eq.2 )then
       do i=1,nx+1
-        dumx(i) = 0.001*xfref(i)
+        dumx(i) = outunitconv*xfref(i)
       enddo
       call disp_err( nf90_put_var(ncid,varid,dumx,(/1/),(/nx+1/)) , .true. )
     elseif( output_filetype.eq.3 )then
       do i=1,ni+1
-        dumx(i) = 0.001*xfref(myi1-1+i)
+        dumx(i) = outunitconv*xfref(myi1-1+i)
       enddo
       call disp_err( nf90_put_var(ncid,varid,dumx,(/1/),(/ni+1/)) , .true. )
     endif
@@ -498,12 +498,12 @@
         call disp_err( nf90_inq_varid(ncid,'yh',varid) , .true. )
     if( output_filetype.eq.1 .or. output_filetype.eq.2 )then
       do j=1,ny
-        dumy(j) = 0.001*0.5*(yfref(j)+yfref(j+1))
+        dumy(j) = outunitconv*0.5*(yfref(j)+yfref(j+1))
       enddo
       call disp_err( nf90_put_var(ncid,varid,dumy,(/1/),(/ny/)) , .true. )
     elseif( output_filetype.eq.3 )then
       do j=1,nj
-        dumy(j) = 0.001*yh(j)
+        dumy(j) = outunitconv*yh(j)
       enddo
       call disp_err( nf90_put_var(ncid,varid,dumy,(/1/),(/nj/)) , .true. )
     endif
@@ -511,12 +511,12 @@
         call disp_err( nf90_inq_varid(ncid,'yf',varid) , .true. )
     if( output_filetype.eq.1 .or. output_filetype.eq.2 )then
       do j=1,ny+1
-        dumy(j) = 0.001*yfref(j)
+        dumy(j) = outunitconv*yfref(j)
       enddo
       call disp_err( nf90_put_var(ncid,varid,dumy,(/1/),(/ny+1/)) , .true. )
     elseif( output_filetype.eq.3 )then
       do j=1,nj+1
-        dumy(j) = 0.001*yfref(myj1-1+j)
+        dumy(j) = outunitconv*yfref(myj1-1+j)
       enddo
       call disp_err( nf90_put_var(ncid,varid,dumy,(/1/),(/nj+1/)) , .true. )
     endif
@@ -524,12 +524,12 @@
         call disp_err( nf90_inq_varid(ncid,'zh',varid) , .true. )
       if(terrain_flag)then
         do k=1,kval
-          dumz(k) = 0.001*sigma(k)
+          dumz(k) = outunitconv*sigma(k)
         enddo
         call disp_err( nf90_put_var(ncid,varid,dumz,(/1/),(/kval/)) , .true. )
       else
         do k=1,kval
-          dumz(k) = 0.001*zh(1,1,k)
+          dumz(k) = outunitconv*zh(1,1,k)
         enddo
         call disp_err( nf90_put_var(ncid,varid,dumz,(/1/),(/kval/)) , .true. )
       endif
@@ -537,12 +537,12 @@
         call disp_err( nf90_inq_varid(ncid,'zf',varid) , .true. )
       if(terrain_flag)then
         do k=1,kvalp1
-          dumz(k) = 0.001*sigmaf(k)
+          dumz(k) = outunitconv*sigmaf(k)
         enddo
         call disp_err( nf90_put_var(ncid,varid,dumz,(/1/),(/kvalp1/)) , .true. )
       else
         do k=1,kvalp1
-          dumz(k) = 0.001*zf(1,1,k)
+          dumz(k) = outunitconv*zf(1,1,k)
         enddo
         call disp_err( nf90_put_var(ncid,varid,dumz,(/1/),(/kvalp1/)) , .true. )
       endif
@@ -630,10 +630,10 @@
     enddo
 
   IF(     restart_filetype.eq.1 )THEN
-    string = 'cm1out_rst.nc'
+    string = 'cm1rst.nc'
   ELSEIF( restart_filetype.eq.2 )THEN
-    string = 'cm1out_rst_XXXXXX.nc'
-    write(string(12:17),100) nrst
+    string = 'cm1rst_XXXXXX.nc'
+    write(string(8:13),100) nrst
 100 format(i6.6)
   ELSE
     print *,'  invalid value for restart_filetype '
@@ -759,6 +759,8 @@
       !------------------
       ! vars:
 
+      call disp_err( nf90_def_var(ncid,"cm1rversion",nf90_float,(/timeid/),varid) , .true. )
+
       call disp_err( nf90_def_var(ncid,"nstep"   ,nf90_int,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"srec"    ,nf90_int,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"sirec"   ,nf90_int,(/timeid/),varid) , .true. )
@@ -801,6 +803,8 @@
 
       call disp_err( nf90_def_var(ncid,"umove" ,nf90_float,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"vmove" ,nf90_float,(/timeid/),varid) , .true. )
+      call disp_err( nf90_def_var(ncid,"domainlocx"   ,nf90_double,(/timeid/),varid) , .true. )
+      call disp_err( nf90_def_var(ncid,"domainlocy"   ,nf90_double,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"adaptmovetim" ,nf90_double,(/timeid/),varid) , .true. )
 
       call disp_err( nf90_def_var(ncid,"cflmax"  ,nf90_float,(/timeid/),varid) , .true. )
@@ -817,6 +821,7 @@
       call disp_err( nf90_def_var(ncid,"radtim"  ,nf90_double,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"prcltim" ,nf90_double,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"adt"     ,nf90_double,(/timeid/),varid) , .true. )
+      call disp_err( nf90_def_var(ncid,"adtlast" ,nf90_double,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"acfl"    ,nf90_double,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"dbldt"   ,nf90_double,(/timeid/),varid) , .true. )
       call disp_err( nf90_def_var(ncid,"mass1"   ,nf90_double,(/timeid/),varid) , .true. )
@@ -2114,7 +2119,7 @@
 
         call disp_err( nf90_def_var(ncid,"xh",nf90_float,(/xhid/),varid) , .true. )
         call disp_err( nf90_put_att(ncid,varid,"long_name","radius") , .true. )
-        call disp_err( nf90_put_att(ncid,varid,"units","km") , .true. )
+        call disp_err( nf90_put_att(ncid,varid,"units",trim(aunit)) , .true. )
         call disp_err( nf90_put_att(ncid,varid,"axis","X") , .true. )
 
         call disp_err( nf90_def_var(ncid,"yh",nf90_float,(/yhid/),varid) , .true. )

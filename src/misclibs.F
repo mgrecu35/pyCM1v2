@@ -4,6 +4,102 @@
 
   CONTAINS
 
+
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+
+      subroutine tavg_plus1(rdenom,tavg,timavg,var,istag,jstag,kstag,k1,k2,dbldt)
+      use input
+      implicit none
+
+      ! add one more data point to time-averages
+
+      double precision, intent(in) :: rdenom
+      integer, intent(in) :: istag,jstag,kstag,k1,k2
+      double precision, intent(inout), dimension(ibta:ieta,jbta:jeta,k1:k2,ntim) :: tavg
+      real,             intent(inout), dimension(ibta:ieta,jbta:jeta,k1:k2) :: timavg
+      real, intent(in), dimension(ib:ie+istag,jb:je+jstag,k1:k2+kstag) :: var
+      double precision, intent(in) :: dbldt
+
+      integer :: i,j,k,n
+      real(kind=qp) :: qtem
+
+      IF( ntim.eq.5 )THEN
+
+        do k=k1,k2
+        do j=0,nj+1+jstag
+        do i=0,ni+1+istag
+          tavg(i,j,k,ntim) = tavg(i,j,k,ntim) + var(i,j,k)*dbldt
+          timavg(i,j,k) = rdenom*( tavg(i,j,k,1) &
+                                  +tavg(i,j,k,2) &
+                                  +tavg(i,j,k,3) &
+                                  +tavg(i,j,k,4) &
+                                  +tavg(i,j,k,5) )
+        enddo
+        enddo
+        enddo
+
+      ELSE
+
+        do k=k1,k2
+        do j=0,nj+1+jstag
+        do i=0,ni+1+istag
+          tavg(i,j,k,ntim) = tavg(i,j,k,ntim) + var(i,j,k)*dbldt
+          qtem = 0.0
+          do n=1,ntim
+            qtem = qtem + tavg(i,j,k,n)
+          enddo
+          timavg(i,j,k) = rdenom*qtem
+        enddo
+        enddo
+        enddo
+
+      ENDIF
+
+      end subroutine tavg_plus1
+
+
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+
+      subroutine tavg_shift(tavg,k1,k2)
+      use input
+      implicit none
+
+      ! add one more data point to time-averages
+
+      integer, intent(in) :: k1,k2
+      double precision, intent(inout), dimension(ibta:ieta,jbta:jeta,k1:k2,ntim) :: tavg
+
+      integer :: i,j,k,n
+
+      DO n = 1 , ntim-1
+
+        do k=k1,k2
+        do j=0,nj+2
+        do i=0,ni+2
+          tavg(i,j,k,n) = tavg(i,j,k,n+1)
+        enddo
+        enddo
+        enddo
+
+      ENDDO
+
+      do k=k1,k2
+      do j=0,nj+2
+      do i=0,ni+2
+        tavg(i,j,k,ntim) = 0.0
+      enddo
+      enddo
+      enddo
+
+      end subroutine tavg_shift
+
+
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -567,11 +663,14 @@
               else
                 tout = ( taptim - mtime )
               endif
-              if( tout.gt.(2.0*dbldt) .and. tout.le.(3.0*dbldt)  )then
-                dbldt = tout/3.0
-              elseif( tout.gt.dbldt .and. tout.le.(2.0*dbldt)  )then
-                dbldt = tout/2.0
+              if( tout.gt.(2.00001d0*dbldt) .and. tout.le.(3.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming writeout time '
+                dbldt = tout/3.0d0
+              elseif( tout.gt.(1.00001d0*dbldt) .and. tout.le.(2.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming writeout time '
+                dbldt = tout/2.0d0
               elseif( tout.le.dbldt )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming writeout time '
                 dbldt = tout
               endif
             ENDIF
@@ -583,11 +682,14 @@
               else
                 tout = ( rsttim - mtime )
               endif
-              if( tout.gt.(2.0*dbldt) .and. tout.le.(3.0*dbldt)  )then
-                dbldt = tout/3.0
-              elseif( tout.gt.dbldt .and. tout.le.(2.0*dbldt)  )then
-                dbldt = tout/2.0
+              if( tout.gt.(2.00001d0*dbldt) .and. tout.le.(3.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming restart time '
+                dbldt = tout/3.0d0
+              elseif( tout.gt.(1.00001d0*dbldt) .and. tout.le.(2.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming restart time '
+                dbldt = tout/2.0d0
               elseif( tout.le.dbldt )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming restart time '
                 dbldt = tout
               endif
             ENDIF
@@ -599,11 +701,14 @@
               else
                 tout = ( stattim - mtime )
               endif
-              if( tout.gt.(2.0*dbldt) .and. tout.le.(3.0*dbldt)  )then
-                dbldt = tout/3.0
-              elseif( tout.gt.dbldt .and. tout.le.(2.0*dbldt)  )then
-                dbldt = tout/2.0
+              if( tout.gt.(2.00001d0*dbldt) .and. tout.le.(3.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming stat time '
+                dbldt = tout/3.0d0
+              elseif( tout.gt.(1.00001d0*dbldt) .and. tout.le.(2.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming stat time '
+                dbldt = tout/2.0d0
               elseif( tout.le.dbldt )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming stat time '
                 dbldt = tout
               endif
             ENDIF
@@ -615,11 +720,14 @@
               else
                 tout = ( diagtim - mtime )
               endif
-              if( tout.gt.(2.0*dbldt) .and. tout.le.(3.0*dbldt)  )then
-                dbldt = tout/3.0
-              elseif( tout.gt.dbldt .and. tout.le.(2.0*dbldt)  )then
-                dbldt = tout/2.0
+              if( tout.gt.(2.00001d0*dbldt) .and. tout.le.(3.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming diag time '
+                dbldt = tout/3.0d0
+              elseif( tout.gt.(1.00001d0*dbldt) .and. tout.le.(2.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming diag time '
+                dbldt = tout/2.0d0
               elseif( tout.le.dbldt )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming diag time '
                 dbldt = tout
               endif
             ENDIF
@@ -631,11 +739,14 @@
               else
                 tout = ( azimavgtim - mtime )
               endif
-              if( tout.gt.(2.0*dbldt) .and. tout.le.(3.0*dbldt)  )then
-                dbldt = tout/3.0
-              elseif( tout.gt.dbldt .and. tout.le.(2.0*dbldt)  )then
-                dbldt = tout/2.0
+              if( tout.gt.(2.00001d0*dbldt) .and. tout.le.(3.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming azimavg time '
+                dbldt = tout/3.0d0
+              elseif( tout.gt.(1.00001*dbldt) .and. tout.le.(2.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming azimavg time '
+                dbldt = tout/2.0d0
               elseif( tout.le.dbldt )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming azimavg time '
                 dbldt = tout
               endif
             ENDIF
@@ -647,11 +758,14 @@
               else
                 tout = ( hifrqtim - mtime )
               endif
-              if( tout.gt.(2.0*dbldt) .and. tout.le.(3.0*dbldt)  )then
-                dbldt = tout/3.0
-              elseif( tout.gt.dbldt .and. tout.le.(2.0*dbldt)  )then
-                dbldt = tout/2.0
+              if( tout.gt.(2.00001d0*dbldt) .and. tout.le.(3.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming hifrq time '
+                dbldt = tout/3.0d0
+              elseif( tout.gt.(1.00001d0*dbldt) .and. tout.le.(2.0d0*dbldt)  )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming hifrq time '
+                dbldt = tout/2.0d0
               elseif( tout.le.dbldt )then
+                if(myid.eq.0) print *,'  Note: setting dt based on upcoming hifrq time '
                 dbldt = tout
               endif
             ENDIF
@@ -2855,13 +2969,13 @@
         endif
       enddo
 
-      if( cm1setup.eq.2 .and. horizturb.eq.0 )then
+      if( idopbl .and. horizturb.eq.0 )then
         fhmax=0.0
         imaxh=0
         jmaxh=0
         kmaxh=0
       endif
-      if( cm1setup.eq.2 .and. ipbl.ne.2 )then
+      if( idopbl .and. ipbl.ne.2 )then
         fvmax=0.0
         imaxv=0
         jmaxv=0
@@ -3607,6 +3721,7 @@
       time_azimavg=0.0
       time_hifrq=0.0
       time_ercyl=0.0
+      time_tavg=0.0
 #ifdef MPI
       time_mpu1=0.0
       time_mpv1=0.0

@@ -66,7 +66,7 @@
 
       integer :: i,j,k,n
       real :: tem,at,rt,qt,at1,rt1,qt1,at2,rt2,qt2,tt1,tt2,fac
-
+      real :: uu,vv,fr,ft
 
 !-----------------------------------------------------------------------
 !     nonprecipitating stratoCu  (Stevens et al, 2005, MWR)
@@ -93,7 +93,7 @@
 !-----------------------------------------------------------------------
 !     hurricane boundary layer (Bryan et al, 2017, BLM)
 
-      IF( testcase.eq.6 .or. testcase.eq.10 )THEN
+      IF( lspgrad.eq.3 )THEN
 
         ! get domain averages:
         call     get_avg_uvt(uavg,vavg,thavg,cavg,th0,ua,va,tha,ruh,ruf,rvh,rvf)
@@ -104,12 +104,17 @@
         !  (radial advection and centrifugal accel terms)
 
         !$omp parallel do default(shared)  &
-        !$omp private(i,j,k)
+        !$omp private(i,j,k,fr,ft,uu,vv)
         DO k=1,nk
-          ufrc(k) = +uavg(k)*uavg(k)*tem  &
-                    +vavg(k)*v0(1,1,k)*tem
-          vfrc(k) = -uavg(k)*dvdr(k)  &
-                    -uavg(k)*v0(1,1,k)*tem
+          ! get average radial and tangential velocities:
+          uu = vavg(k)*sin(-hurr_angle) + uavg(k)*cos(-hurr_angle)
+          vv = vavg(k)*cos(-hurr_angle) - uavg(k)*sin(-hurr_angle)
+          ! B17 baseline tendencies:
+          fr = +uu*uu*tem + vv*vg(k)*tem
+          ft = -uu*dvdr(k) - uu*vg(k)*tem
+          ! rotate into Cartesian coordinations:
+          ufrc(k) = fr*cos(-hurr_angle) - ft*sin(-hurr_angle)
+          vfrc(k) = fr*sin(-hurr_angle) + ft*cos(-hurr_angle)
         ENDDO
 
       ENDIF

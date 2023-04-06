@@ -38,7 +38,6 @@
       use comm_module
       use goddard_module, only : T0K,T00K,RT0
       use cm1libs , only : rslf,rsif
-      use turb_module , only : ramp_up_turb
       use getcape_module
 #ifdef MPI
       use mpi
@@ -502,23 +501,40 @@
         nmax = 1000000  !should be enough!
 
         allocate(   zsnd(nmax) )
+        zsnd = 0.0
         allocate(  thsnd(nmax) )
+        thsnd = 0.0
         allocate(  qvsnd(nmax) )
+        qvsnd = 0.0
         allocate(   usnd(nmax) )
+        usnd = 0.0
         allocate(   vsnd(nmax) )
+        vsnd = 0.0
         allocate( thvsnd(nmax) )
+        thvsnd = 0.0
         allocate(  pisnd(nmax) )
+        pisnd = 0.0
         allocate(   psnd(nmax) )
+        psnd = 0.0
         allocate(   tsnd(nmax) )
+        tsnd = 0.0
         allocate(  rhsnd(nmax) )
+        rhsnd = 0.0
 
         allocate( thinterp(nk) )
+        thinterp = 0.0
         allocate( qvinterp(nk) )
+        qvinterp = 0.0
         allocate(  uinterp(nk) )
+        uinterp = 0.0
         allocate(  vinterp(nk) )
+        vinterp = 0.0
         allocate(  pinterp(nk) )
+        pinterp = 0.0
         allocate(  tinterp(nk) )
+        tinterp = 0.0
         allocate( rhinterp(nk) )
+        rhinterp = 0.0
 
       prc0:  &
       IF( myid.eq.0 )THEN
@@ -592,6 +608,7 @@
 
         if(imoist.eq.0) qvsnd = 0.0
 
+      if( isnd.eq.7 )then
         ! dont remember where this formulation comes from:
 !!!        usnd(1) = 1.75*usnd(2)-usnd(3)+0.25*usnd(4)
 !!!        vsnd(1) = 1.75*vsnd(2)-vsnd(3)+0.25*vsnd(4)
@@ -599,6 +616,7 @@
         ! 190324:  use simple extrapolation
         usnd(1) = usnd(2) - (zsnd(2)-zsnd(1))*(usnd(3)-usnd(2))/(zsnd(3)-zsnd(2))
         vsnd(1) = vsnd(2) - (zsnd(2)-zsnd(1))*(vsnd(3)-vsnd(2))/(zsnd(3)-zsnd(2))
+      endif
 
 !--------------------------------------------------------------------
 !  Added by GHB, 061021:
@@ -782,6 +800,10 @@
         ENDIF
         IF( testcase.eq.10 )THEN
           rhval = 0.90
+        ENDIF
+        IF( testcase.eq.15 )THEN
+          lapse = 0.005
+          rhval = 0.80
         ENDIF
 
 
@@ -2464,6 +2486,10 @@
           ! SAS
           uval =  2.0
           vval =  0.0
+        elseif( testcase.eq.12 )then
+          ! Martinuzzi and Tropea (1993) wind tunnel
+          uval = 20.0
+          vval =  0.0
         elseif( testcase.eq.14 )then
           ! shallow Cu over land (Brown et al. 2002)
           uval = 10.0
@@ -2498,24 +2524,30 @@
 
       ELSEIF(iwnd.eq.8)THEN
 
-        vmax = 40.0
+!!!        vmax = 40.0        ! this is now set in namelist.input
+                              ! (see hurr_vg in param21 section)
 
+        ! velocity in cylindrical coords:
         do k=1,nk
 
-          do j=0,nj+1
-          do i=0,ni+2
-            zu=0.5*(zh(i-1,j,k)+zh(i,j,k))
-            u0(i,j,k) = 0.0
-          enddo
-          enddo
+!!!          ! linearly decreasing with height:
+!!!          ug(k) = 0.0
+!!!          vg(k) = hurr_vg * max( 0.0 , (1.0-zh(1,1,k)/18000.0) )
 
-          do j=0,nj+2
-          do i=0,ni+1
-            zv=0.5*(zh(i,j-1,k)+zh(i,j,k))
-            v0(i,j,k) = vmax*max( 0.0 , (1.0-zv/18000.0) )
-          enddo
-          enddo
+          ! constant with height:
+          ug(k) = 0.0
+          vg(k) = hurr_vg
 
+        enddo
+
+        ! convert to Cartesian components:
+        do k=1,nk
+        do j=0,nj+2
+        do i=0,ni+2
+          u0(i,j,k) = - vg(k) * sin(-hurr_angle)
+          v0(i,j,k) =   vg(k) * cos(-hurr_angle)
+        enddo
+        enddo
         enddo
 
 !-----------------------------------------------------------------------
@@ -2792,11 +2824,12 @@
 
     !-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-!
 
-    IF( testcase.eq.6 .or. testcase.eq.10 )THEN
+    IF( testcase.eq.6 .or. testcase.eq.10 .or. testcase.eq.15 )THEN
 
       ! hurricane boundary layer (Bryan et al, 2017, BLM)
 
-      hurr_rad = 40000.0      ! radius from center of hurricane (m) 
+!!!      hurr_rad = 40000.0      ! radius from center of hurricane (m) 
+                                 ! (cm1r21.0: now set this in namelist.input)
 
       wmin  =   -0.01    ! value of w at z = z1
 !!!      wmin  =   var1     ! value of w at z = z1
@@ -2806,7 +2839,10 @@
       do k=1,nk
 
         ! radial gradient of tangential velocity (defined on scalar levels)
-        dvdr(k) = -0.00085*max(0.0,1.0-zh(1,1,k)/18000.0)
+!!!        dvdr(k) = -0.00085*max(0.0,1.0-zh(1,1,k)/18000.0)
+        ! set this in namelist.input:
+        ! hurr_vgpl is the power law of the gradient wind
+        dvdr(k) = hurr_vgpl * ( vg(k) / hurr_rad )
 
         ! subsidence (defined on w levels)
         if( zf(1,1,k).le.z1 )then
@@ -2822,9 +2858,9 @@
       if( dowr ) write(outfile,*)
       if( dowr ) write(outfile,*) '  hurr_rad (m) = ',hurr_rad
       if( dowr ) write(outfile,*)
-      if( dowr ) write(outfile,*) '      zh(m),v0(m/s),dvdr(1/s),n = '
+      if( dowr ) write(outfile,*) '      zh(m),vg(m/s),dvdr(1/s),n = '
       do k=1,nk
-        if( dowr ) write(outfile,*) zh(1,1,k),v0(1,1,k),dvdr(k),-dvdr(k)*hurr_rad/max(1.0e-12,v0(1,1,k))
+        if( dowr ) write(outfile,*) zh(1,1,k),vg(k),dvdr(k),-dvdr(k)*hurr_rad/max(1.0e-12,vg(k))
       enddo
       if( dowr ) write(outfile,*)
 
@@ -2891,7 +2927,6 @@
 
     IF( testcase .eq. 9 .or. testcase.eq.14 )THEN
 
-      ramp_up_turb = .true.
 
     ENDIF
 
@@ -2919,8 +2954,6 @@
       qvfrc = 0.0
       wprof = 0.0
 
-      ramp_up_turb = .true.
-
     ENDIF
 
     !-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-!
@@ -2929,13 +2962,7 @@
 
       ! Martinuzzi and Tropea (1993, JFE) wind tunnel case:
 
-      ramp_up_turb = .true.
-
-        if( isnd.ne.7 )then
-          u0 = 10.0
-          v0 =  0.0
-        endif
-        ulspg = 0.00048
+        ulspg = 36.0
         vlspg = 0.0
 
     ENDIF
@@ -2945,8 +2972,6 @@
     IF( testcase.eq.13 )THEN
 
       ! UF Boundary Layer Wind Tunnel case:
-
-      ramp_up_turb = .true.
 
       ! BLWT:
       if( isnd.ne.7 )then
@@ -2961,7 +2986,6 @@
     ENDIF
 
     !-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-!
-
 
     do k=kb,ke
       ug(k) = ug(k) - umove
@@ -3230,6 +3254,33 @@
         write(21,123) 0.01*psurf,thsurf,1000.0*qsurf
 123     format(2x,f11.4,2x,f11.4,2x,f10.6)
 124     format(2x,f11.4,2x,f11.4,2x,f10.6,2x,f11.4,2x,f11.4)
+        do k=1,nk
+          write(21,124) zh(i,j,k),th0(i,j,k),1000.0*qv0(i,j,k),u0(i,j,k),v0(i,j,k)
+        enddo
+          write(21,124) cgt1*zh(i,j,nk)+cgt2*zh(i,j,nk-1)+cgt3*zh(i,j,nk-2),     &
+                        cgt1*th0(i,j,nk)+cgt2*th0(i,j,nk-1)+cgt3*th0(i,j,nk-2),  &
+                1000.0*(cgt1*qv0(i,j,nk)+cgt2*qv0(i,j,nk-1)+cgt3*qv0(i,j,nk-2)), &
+                        cgt1*u0(i,j,nk)+cgt2*u0(i,j,nk-1)+cgt3*u0(i,j,nk-2),     &
+                        cgt1*v0(i,j,nk)+cgt2*v0(i,j,nk-1)+cgt3*v0(i,j,nk-2)
+        close(unit=21)
+
+      ENDIF
+      ENDIF
+
+!--------------------------------------------------------------
+
+      dothis = .false.
+      IF( dothis )THEN
+      IF( myid.eq.0 )THEN
+
+        open(unit=21,file='lsnudge_0001.dat')
+        write(21,*) '*  Header:   lsnudge_time1 (s)   lsnudge_time2 (s)'
+        write(21,*) '                    0.0                1.0e30 '
+        write(21,*) '*  Profile.   Note: values will be ignored if nudging for that variable is off.'
+        write(21,*) '*    z (m)   theta (K)    qv (g/kg)  u (m/s, grnd-reltv) v (m/s, grnd-reltv)'
+        i = 1
+        j = 1
+!!!        write(21,123) 0.01*psurf,thsurf,1000.0*qsurf
         do k=1,nk
           write(21,124) zh(i,j,k),th0(i,j,k),1000.0*qv0(i,j,k),u0(i,j,k),v0(i,j,k)
         enddo

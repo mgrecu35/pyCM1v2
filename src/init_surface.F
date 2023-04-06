@@ -32,7 +32,7 @@
       real, intent(inout), dimension(ibmyj:iemyj,jbmyj:jemyj) :: z0base
 
       integer :: i,j,k,l
-      real :: x1,x2
+      real :: x1,x2,xcoast
 
 !-----------------------------------------------------------------------
 !  BEGIN user settings
@@ -102,6 +102,24 @@
             znt(i,j) = 0.010
           else
             znt(i,j) = 0.001
+          endif
+        enddo
+        enddo
+
+!----------
+
+      ELSEIF( initsfc.eq.4 ) THEN
+
+        xcoast = minx + 0.5*(maxx-minx)
+
+        do j=jb,je
+        do i=ib,ie
+          if( xh(i) .lt. xcoast )then
+            xland(i,j) = 1.0
+            lu_index(i,j) = 18
+          else
+            xland(i,j) = 2.0
+            lu_index(i,j) = 16
           endif
         enddo
         enddo

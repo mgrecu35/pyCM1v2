@@ -226,7 +226,7 @@ CONTAINS
 !===================================
 ! 3D VARIABLES
 !===================================
-      REAL,     DIMENSION( ims:ime, jms:jme , kms:kme )           , &
+      REAL,     DIMENSION( ims:ime, kms:kme, jms:jme )           , &
                 INTENT(IN   )   ::                           dz8w, &
                                                              QV3D, &
                                                               P3D, &
@@ -235,7 +235,7 @@ CONTAINS
                                                           U3D,V3D, &
                                                   RHO3D,th3d,pi3d
 
-      REAL, DIMENSION( ims:ime, jms:jme , kms:kme ), OPTIONAL,      &
+      REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), OPTIONAL,      &
                 INTENT(IN) ::                      pattern_spp_pbl
 !===================================
 ! 2D VARIABLES
@@ -303,20 +303,20 @@ CONTAINS
 
       DO J=jts,jte
         DO i=its,ite
-           dz8w1d(I) = dz8w(i,j,kts)
-           dz2w1d(I) = dz8w(i,j,kts+1)
-           U1D(i) =U3D(i,j,kts)
-           V1D(i) =V3D(i,j,kts)
+           dz8w1d(I) = dz8w(i,kts,j)
+           dz2w1d(I) = dz8w(i,kts+1,j)
+           U1D(i) =U3D(i,kts,j)
+           V1D(i) =V3D(i,kts,j)
            !2nd model level winds - for diags with high-res grids
-           U1D2(i) =U3D(i,j,kts+1)
-           V1D2(i) =V3D(i,j,kts+1)
-           QV1D(i)=QV3D(i,j,kts)
-           QC1D(i)=QC3D(i,j,kts)
-           P1D(i) =P3D(i,j,kts)
-           T1D(i) =T3D(i,j,kts)
-           RHO1D(i)=RHO3D(i,j,kts)
+           U1D2(i) =U3D(i,kts+1,j)
+           V1D2(i) =V3D(i,kts+1,j)
+           QV1D(i)=QV3D(i,kts,j)
+           QC1D(i)=QC3D(i,kts,j)
+           P1D(i) =P3D(i,kts,j)
+           T1D(i) =T3D(i,kts,j)
+           RHO1D(i)=RHO3D(i,kts,j)
            if (spp_pbl==1) then
-               rstoch1D(i)=pattern_spp_pbl(i,j,kts)
+               rstoch1D(i)=pattern_spp_pbl(i,kts,j)
            else
                rstoch1D(i)=0.0
            endif
@@ -326,7 +326,7 @@ CONTAINS
            DO i=its,ite
               UST(i,j)=MAX(0.04*SQRT(U1D(i)*U1D(i) + V1D(i)*V1D(i)),0.001)
               MOL(i,j)=0.     ! Tstar
-              QSFC(i,j)=QV3D(i,j,kts)/(1.+QV3D(i,j,kts))
+              QSFC(i,j)=QV3D(i,kts,j)/(1.+QV3D(i,kts,j))
               qstar(i,j)=0.0
            ENDDO
         ENDIF

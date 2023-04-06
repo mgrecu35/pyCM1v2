@@ -83,7 +83,9 @@
 !.. droplet number concentration.
 !!!      REAL, PARAMETER, PRIVATE:: Nt_c = 100.E6
       ! setting to continental-type value by default:  GHB, 130918
-      REAL, PARAMETER, PRIVATE:: Nt_c = 250.E6
+!!!      REAL, PARAMETER, PRIVATE:: Nt_c = 250.E6
+    ! 220313: made Nt_c a CM1 namelist parameter (set in thompson_init)
+      REAL :: Nt_c
       REAL, PARAMETER, PRIVATE:: Nt_c_max = 1999.E6
 
 !..Declaration of constants for assumed CCN/IN aerosols when none in
@@ -415,7 +417,7 @@
       CONTAINS
 
       SUBROUTINE thompson_init(hgt, orho, nwfa2d, nwfa, nifa,           &
-                          dx, dy, is_start, dowr,                       &
+                          dx, dy, is_start, dowr, nt_c_in,              &
                           ids, ide, jds, jde, kds, kde,                 &
                           ims, ime, jms, jme, kms, kme,                 &
                           its, ite, jts, jte, kts, kte)
@@ -427,6 +429,7 @@
                             its,ite, jts,jte, kts,kte
       REAL, DIMENSION(ims:ime,jms:jme,kms:kme), INTENT(IN):: hgt
       logical, intent(in) :: dowr
+      real, intent(in) :: nt_c_in
 
 !..OPTIONAL variables that control application of aerosol-aware scheme
 
@@ -441,6 +444,8 @@
       INTEGER:: i, j, k, l, m, n
       REAL:: h_01, airmass, niIN3, niCCN3, max_test
       LOGICAL:: micro_init, has_CCN, has_IN
+
+      nt_c = 1.0e6 * nt_c_in
 
       is_aerosol_aware = .FALSE.
       micro_init = .FALSE.
@@ -1010,7 +1015,8 @@
                               tcond,tevac,tevar,train,                &
                               ruh,rvh,rmh,rr,rain,prate,              &
                               ib3d,ie3d,jb3d,je3d,kb3d,ke3d,          &
-                              nout3d,out3d,eqtset,                    &
+                              nout3d,out3d,eqtset,getvt,              &
+                              vtc,vtr,vti,vts,vtg,                    &
                               ids,ide, jds,jde, kds,kde, &             ! domain dims
                               ims,ime, jms,jme, kms,kme, &             ! memory dims
                               its,ite, jts,jte, kts,kte)               ! tile dims
@@ -1024,6 +1030,8 @@
                             its,ite, jts,jte, kts,kte
       REAL, DIMENSION(ims:ime, jms:jme, kms:kme), INTENT(INOUT):: &
                           qv, qc, qr, qi, qs, qg, ni, nr, t3d
+      REAL, DIMENSION(ims:ime, jms:jme, kms:kme), INTENT(INOUT):: &
+                          vtc,vtr,vti,vts,vtg
       REAL, DIMENSION(ims:ime, jms:jme, kms:kme), OPTIONAL, INTENT(INOUT):: &
                           nc, nwfa, nifa
       REAL, DIMENSION(ims:ime, jms:jme), OPTIONAL, INTENT(IN):: nwfa2d, nifa2d
@@ -1043,6 +1051,7 @@
       integer, intent(in) :: ib3d,ie3d,jb3d,je3d,kb3d,ke3d,nout3d
       real, intent(inout) , dimension(ib3d:ie3d,jb3d:je3d,kb3d:ke3d,nout3d) :: out3d
       integer, intent(in) :: eqtset
+      logical, intent(in) :: getvt
       ! CM1 stuff !
 
 #if ( WRF_CHEM == 1 )
@@ -1087,6 +1096,7 @@
       integer :: kediagloc
       integer :: n
       DOUBLE PRECISION, DIMENSION(kts:kte):: prv_rev,prw_vcd
+      REAL, DIMENSION(kts:kte+1):: vtik, vtrk, vtsk, vtgk, vtck
       real :: tem1,tem2
       double precision, dimension(jds:jde) :: bud1,bud2,bud3,bud4
 
@@ -1152,7 +1162,7 @@
 !$omp parallel do default(shared)   &
 !$omp private(i,j,k,n,pptrain,pptsnow,pptgraul,pptice,   &
 !$omp t1d,p1d,w1d,dz1d,qv1d,qc1d,qi1d,qr1d,qs1d,qg1d,ni1d,nr1d,   &
-!$omp rho,prv_rev,prw_vcd,tem2,dbz,nc1d,nwfa1d,nifa1d,nwfa1)
+!$omp rho,prv_rev,prw_vcd,tem2,dbz,nc1d,nwfa1d,nifa1d,nwfa1,vtik,vtrk,vtsk,vtgk,vtck)
       j_loop:  do j = j_start, j_end
       bud1(j)=0.0d0
       bud2(j)=0.0d0
@@ -1162,6 +1172,12 @@
 
          prv_rev = 0.0
          prw_vcd = 0.0
+
+         vtik = 0.0
+         vtrk = 0.0
+         vtsk = 0.0
+         vtgk = 0.0
+         vtck = 0.0
 
          pptrain = 0.
          pptsnow = 0.
@@ -1210,6 +1226,7 @@
          call mp_thompson(qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, ni1d,     &
                       nr1d, nc1d, nwfa1d, nifa1d, t1d, p1d, w1d, dz1d,  &
                       pptrain, pptsnow, pptgraul, pptice, prv_rev, prw_vcd, &
+                      vtik,vtrk,vtsk,vtgk,vtck, &
 #if ( WRF_CHEM == 1 )
                       rainprod1d, evapprod1d, &
 #endif
@@ -1249,6 +1266,15 @@
            bud4(j) = bud4(j) - tem2*min(prw_vcd(k),0.0d0)
          enddo
 
+      IF( getvt )THEN
+        do k = kts, kte
+          vtc(i,j,k) = vtck(k)
+          vtr(i,j,k) = vtrk(k)
+          vti(i,j,k) = vtik(k)
+          vts(i,j,k) = vtsk(k)
+          vtg(i,j,k) = vtgk(k)
+        enddo
+      ENDIF
 
 !..Reset lowest model level to initial state aerosols (fake sfc source).
 !.. Changed 13 May 2013 to fake emissions in which nwfa2d is aerosol
@@ -1439,6 +1465,7 @@
       subroutine mp_thompson (qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, ni1d, &
                           nr1d, nc1d, nwfa1d, nifa1d, t1d, p1d, w1d, dzq, &
                           pptrain, pptsnow, pptgraul, pptice, prv_rev, prw_vcd, &
+                          vtik,vtrk,vtsk,vtgk,vtck, &
 #if ( WRF_CHEM == 1 )
                           rainprod, evapprod, &
 #endif
@@ -1523,8 +1550,11 @@
       REAL:: zeta1, zeta, taud, tau
       REAL:: stoke_r, stoke_s, stoke_g, stoke_i
       REAL:: vti, vtr, vts, vtg, vtc
-      REAL, DIMENSION(kts:kte+1):: vtik, vtnik, vtrk, vtnrk, vtsk, vtgk,  &
-           vtck, vtnck
+      ! GHB: get fall velocities
+!!!      REAL, DIMENSION(kts:kte+1):: vtik, vtnik, vtrk, vtnrk, vtsk, vtgk,  &
+!!!           vtck, vtnck
+      REAL, DIMENSION(kts:kte+1):: vtnik, vtnrk, vtnck
+      REAL, DIMENSION(kts:kte+1),intent(inout) :: vtik,vtrk,vtsk,vtgk,vtck
       REAL, DIMENSION(kts:kte):: vts_boost
       REAL:: Mrat, ils1, ils2, t1_vts, t2_vts, t3_vts, t4_vts, C_snow
       REAL:: a_, b_, loga_, A1, A2, tf
@@ -5635,7 +5665,7 @@ SUBROUTINE nl_get_write_thompson_tables ( id_id , write_thompson_tables )
   INTEGER id_id
 !!!  write_thompson_tables = model_config_rec%write_thompson_tables
   write_thompson_tables = .false.
-  write_thompson_tables = .true.
+!!!  write_thompson_tables = .true.
   RETURN
 END SUBROUTINE nl_get_write_thompson_tables
 !--- cm1 ---!

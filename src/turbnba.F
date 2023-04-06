@@ -22,11 +22,10 @@
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
 
-      subroutine turbnba(nstep,uh,ruh,uf,ruf,vh,rvh,vf,rvf,mh,rmh,mf,rmf,zf,c1,c2,rho,rf,zntmp,ust,  &
+      subroutine turbnba(nstep,uh,ruh,uf,ruf,vh,rvh,vf,rvf,mh,rmh,mf,rmf,zf,c1,c2,rho,rf,zntmp,ust,cm0,  &
                          s11 ,s12 ,s13 ,s22 ,s23 ,s33 ,            &
-                         r12 ,r13 ,r23  ,lenscl,grdscl,tk  ,       &
+                         r12 ,r13 ,r23  ,lenscl,grdscl,tk  ,cme,   &
                          m11,m12,m13,m22,m23,m33,                  &
-                         cmz,csz,ce1z,ce2z,                        &
                          ua ,va ,wa ,tkea ,nm,                     &
                          kw1,kw2,ke1,ke2,ks1,ks2,kn1,kn2,reqs_s,   &
                          nw1,nw2,ne1,ne2,sw1,sw2,se1,se2)
@@ -46,12 +45,12 @@
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: mh,rmh
       real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: mf,rmf,zf
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: c1,c2,rho,rf
-      real, intent(in), dimension(ib:ie,jb:je) :: zntmp,ust
+      real, intent(in), dimension(ib:ie,jb:je) :: zntmp,ust,cm0
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: r12,r13,r23
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: lenscl,grdscl,tk
+      real, intent(in),    dimension(ibc:iec,jbc:jec,kbc:kec) :: cme
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: s11,s12,s13,s22,s23,s33
       real, intent(inout), dimension(ibnba:ienba,jbnba:jenba,kbnba:kenba) :: m11,m12,m13,m22,m23,m33
-      real, intent(in), dimension(kb:ke) :: cmz,csz,ce1z,ce2z
       real, intent(in), dimension(ib:ie+1,jb:je,kb:ke) :: ua
       real, intent(in), dimension(ib:ie,jb:je+1,kb:ke) :: va
       real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: wa
@@ -77,8 +76,8 @@
         nba_ck = (2.0/3.0)*( (pi*c_m)**(-2.0/3.0) )
 
         nba_cs = sqrt( ( 8.0*( 1.0+nba_cb ) )/( 27.0*pi*pi ) )  &
-                 * cmz(1) / c_m
-      if( myid.eq.0 ) print *,'  tem = ',cmz(1) / c_m
+                 * cme(1,1,2) / c_m
+      if( myid.eq.0 ) print *,'  tem = ',cme(1,1,2) / c_m
 
         nba_c1 = ( sqrt(960.0)*nba_cb )/( 7.0*( 1.0+nba_cb )*nba_sk )
         nba_c2 = nba_c1
@@ -156,6 +155,19 @@
         lenscl(i,j,nk+1) = lenscl(i,j,nk)
       enddo
       enddo
+
+      if( cm1setup.eq.4 )then
+        ! zero-out lenscl in mesoscale-model part of domain:
+
+        DO k=1,nk
+        do j=0,nj+1
+        do i=0,ni+1
+          if( cm0(i,j).le.cmemin ) lenscl(i,j,k) = 0.0
+        enddo
+        enddo
+        ENDDO
+
+      endif
 
 !------------------------------------------------------------------
 
@@ -453,11 +465,10 @@
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
 
-      subroutine turbnba2(nstep,uh,ruh,uf,ruf,vh,rvh,vf,rvf,mh,rmh,mf,rmf,zf,c1,c2,rho,rf,zntmp,ust,  &
+      subroutine turbnba2(nstep,uh,ruh,uf,ruf,vh,rvh,vf,rvf,mh,rmh,mf,rmf,zf,c1,c2,rho,rf,zntmp,ust,cm0,  &
                          s11 ,s12 ,s13 ,s22 ,s23 ,s33 ,            &
-                         r12 ,r13 ,r23  ,lenscl,grdscl,tk  ,       &
+                         r12 ,r13 ,r23  ,lenscl,grdscl,tk  ,cme,   &
                          m11,m12,m13,m22,m23,m33,                  &
-                         cmz,csz,ce1z,ce2z,                        &
                          ua ,va ,wa ,tkea ,nm,                     &
                          kw1,kw2,ke1,ke2,ks1,ks2,kn1,kn2,reqs_s,   &
                          nw1,nw2,ne1,ne2,sw1,sw2,se1,se2)
@@ -477,12 +488,12 @@
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: mh,rmh
       real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: mf,rmf,zf
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: c1,c2,rho,rf
-      real, intent(in), dimension(ib:ie,jb:je) :: zntmp,ust
+      real, intent(in), dimension(ib:ie,jb:je) :: zntmp,ust,cm0
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: r12,r13,r23
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: lenscl,grdscl,tk
+      real, intent(in),    dimension(ibc:iec,jbc:jec,kbc:kec) :: cme
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: s11,s12,s13,s22,s23,s33
       real, intent(inout), dimension(ibnba:ienba,jbnba:jenba,kbnba:kenba) :: m11,m12,m13,m22,m23,m33
-      real, intent(in), dimension(kb:ke) :: cmz,csz,ce1z,ce2z
       real, intent(in), dimension(ib:ie+1,jb:je,kb:ke) :: ua
       real, intent(in), dimension(ib:ie,jb:je+1,kb:ke) :: va
       real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: wa
@@ -508,8 +519,8 @@
         nba_ck = (2.0/3.0)*( (pi*c_m)**(-2.0/3.0) )
 
         nba_cs = sqrt( ( 8.0*( 1.0+nba_cb ) )/( 27.0*pi*pi ) )  &
-                 * cmz(1) / c_m
-      if( myid.eq.0 ) print *,'  tem = ',cmz(1) / c_m
+                 * cme(1,1,2) / c_m
+      if( myid.eq.0 ) print *,'  tem = ',cme(1,1,2) / c_m
 
         nba_c1 = ( sqrt(960.0)*nba_cb )/( 7.0*( 1.0+nba_cb )*nba_sk )
         nba_c2 = nba_c1
@@ -568,6 +579,19 @@
         grdscl(i,j,nk+1) = grdscl(i,j,nk)
       enddo
       enddo
+
+      if( cm1setup.eq.4 )then
+        ! zero-out grdscl in mesoscale-model part of domain:
+
+        DO k=1,nk
+        do j=0,nj+1
+        do i=0,ni+1
+          if( cm0(i,j).le.cmemin ) grdscl(i,j,k) = 0.0
+        enddo
+        enddo
+        ENDDO
+
+      endif
 
 !------------------------------------------------------------------
 

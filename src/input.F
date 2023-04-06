@@ -38,11 +38,14 @@
               restart_file_diags,restart_use_theta,restart_reset_frqtim,      &
               dolsw,dodomaindiag,doazimavg,dohifrq,dohturb,dovturb,pdcomp,    &
               use_pbl,use_avg_sfc,dot2p,iusetke,do_adapt_move,                &
-              bl_mynn_tkeadvect
+              bl_mynn_tkeadvect,idoles,idopbl,dotimeavg,interp_on_restart,    &
+              do_recycle_w,do_recycle_s,do_recycle_e,do_recycle_n,            &
+              do_lsnudge,do_lsnudge_u,do_lsnudge_v,do_lsnudge_th,do_lsnudge_qv, &
+              do_ib
 
 !-----------------------------------------------------------------------
 
-      integer nx,ny,nz,nodex,nodey,ppnode,timeformat,timestats,               &
+      integer nx,ny,nz,nodex,nodey,ppnode,timeformat,timestats,outunits,      &
               ni,nj,nk,nkp1,ngxy,ngz,                                         &
               ib,ie,jb,je,kb,ke,                                              &
               ibm,iem,jbm,jem,kbm,kem,                                        &
@@ -56,7 +59,9 @@
               ibb,ieb,jbb,jeb,kbb,keb,                                        &
               ibp3,iep3,jbp3,jep3,kbp3,kep3,np3a,np3o,                        &
               ibmynn,iemynn,jbmynn,jemynn,kbmynn,kemynn,                      &
-              ibmyj ,iemyj ,jbmyj ,jemyj ,kbmyj ,kemyj ,nmyj,                 &
+              ibmyj ,iemyj ,jbmyj ,jemyj ,kbmyj ,kemyj ,                      &
+              ibpbl ,iepbl ,jbpbl ,jepbl ,kbpbl ,kepbl ,npbl,                 &
+              ibta  ,ieta  ,jbta  ,jeta  ,kbta  ,keta  ,                      &
               ibdt,iedt,jbdt,jedt,kbdt,kedt,ntdiag,                           &
               ibdq,iedq,jbdq,jedq,kbdq,kedq,nqdiag,                           &
               ibdv,iedv,jbdv,jedv,kbdv,kedv,nudiag,nvdiag,nwdiag,             &
@@ -71,11 +76,11 @@
               d2j,d2js,d2ju,d2jv,                                             &
               d3i,d3is,d3iu,d3iv,                                             &
               d3j,d3js,d3ju,d3jv,                                             &
-              d3n,d3t,mynode,nodemaster,nodes,                                &
+              d3n,d3t,mynode,nodeleader,nodes,                                &
               ibzvd,iezvd,jbzvd,jezvd,kbzvd,kezvd,nqzvd,                      &
               imirror,jmirror,                                                &
               imp,jmp,kmp,kmt,rmp,cmp,nrain,                                  &
-              numq,nqv,nqc,nqr,nqi,nqs,nqg,nnci,nncc,                         &
+              numq,nqv,nqc,nqr,nqi,nqs,nqg,nnci,nncc,nqi2,nqi3,               &
               prx,pry,prz,pru,prv,prw,prth,prt,prprs,prtime,                  &
               prpt1,prpt2,prqv,prq1,prq2,prnc1,prnc2,prkm,prkh,prtke,         &
               prdbz,prb,prvpg,przv,prrho,prqsl,prqsi,prznt,prust,przs,prsig,  &
@@ -87,7 +92,7 @@
               idiff,mdiff,difforder,imoist,sgsmodel,horizturb,                &
               tconfig,bcturbs,doimpl,                                         &
               irdamp,hrdamp,psolver,nsound,ptype,ihail,iautoc,                &
-              icor,lspgrad,eqtset,idiss,efall,rterm,betaplane,                &
+              icor,betaplane,lspgrad,eqtset,idiss,efall,rterm,                &
               wbc,ebc,sbc,nbc,bbc,tbc,irbc,roflux,nudgeobc,                   &
               isnd,iwnd,itern,iinit,                                          &
               irandp,ibalance,iorigin,axisymm,imove,iptra,npt,pdtra,          &
@@ -130,7 +135,7 @@
               radopt,year,month,day,hour,minute,second,jday,                  &
               isfcflx,sfcmodel,oceanmodel,ipbl,initsfc,lu0,season,            &
               cecd,pertflx,isftcflx,iz0tlnd,convinit,wnudge,maxk,             &
-              set_znt,set_flx,set_ust,                                        &
+              set_znt,set_flx,set_ust,ramp_sgs,t2p_avg,                       &
               qd_dbz,qd_vtc,qd_vtr,qd_vts,qd_vtg,qd_vti,                      &
               td_hadv,td_vadv,td_hturb,td_vturb,td_mp,td_rdamp,               &
               td_rad,td_div,td_diss,td_pbl,td_lsw,td_efall,                   &
@@ -138,9 +143,9 @@
               td_nudge,                                                       &
               qd_hadv,qd_vadv,qd_hturb,qd_vturb,qd_mp,qd_pbl,qd_lsw,          &
               qd_cond,qd_evac,qd_evar,qd_dep,qd_subl,qd_nudge,                &
-              ud_hadv,ud_vadv,ud_hturb,ud_vturb,ud_pgrad,ud_rdamp,            &
+              ud_hadv,ud_vadv,ud_hturb,ud_vturb,ud_pgrad,ud_rdamp,ud_nudge,   &
               ud_pbl,ud_cor,ud_cent,ud_lsw,                                   &
-              vd_hadv,vd_vadv,vd_hturb,vd_vturb,vd_pgrad,vd_rdamp,            &
+              vd_hadv,vd_vadv,vd_hturb,vd_vturb,vd_pgrad,vd_rdamp,vd_nudge,   &
               vd_pbl,vd_cor,vd_cent,vd_lsw,                                   &
               wd_hadv,wd_vadv,wd_hturb,wd_vturb,wd_pgrad,wd_rdamp,wd_buoy,    &
               kd_adv,kd_turb,                                                 &
@@ -156,14 +161,15 @@
               bl_mynn_mixlength,bl_mynn_edmf,                                 &
               bl_mynn_edmf_mom,bl_mynn_edmf_tke,bl_mynn_mixscalars,           &
               bl_mynn_cloudmix,bl_mynn_mixqt,initflag,spp_pbl,bl_mynn_output, &
-              nutk,nvtk,nwtk
+              nutk,nvtk,nwtk,                                                 &
+              ntim,ntavr,utav,vtav,wtav,ttav,qtav,etav,uutav,vvtav,           &
+              nsfctavr,les_subdomain_shape,ib_init
 
 !-----------------------------------------------------------------------
 
       real dx,dy,dz,dtl,timax,run_time,                                       &
-           tapfrq,rstfrq,statfrq,prclfrq,diagfrq,azimavgfrq,hifrqfrq,         &
            kdiff2,kdiff6,fcor,kdiv,alph,rdalpha,zd,xhd,alphobc,umove,vmove,   &
-           v_t,l_h,lhref1,lhref2,l_inf,ndcnst,cnstce,cnstcd,                  &
+           v_t,l_h,lhref1,lhref2,l_inf,ndcnst,nt_c,cnstce,cnstcd,             &
            dx_inner,dx_outer,nos_x_len,tot_x_len,                             &
            dy_inner,dy_outer,nos_y_len,tot_y_len,                             &
            ztop,str_bot,str_top,dz_bot,dz_top,                                &
@@ -184,19 +190,32 @@
            cgs1,cgs2,cgs3,cgt1,cgt2,cgt3,                                     &
            dgs1,dgs2,dgs3,dgt1,dgt2,dgt3,                                     &
            wbe1,wbe2,wbe3,wte1,wte2,wte3,                                     &
-           csound,hurr_rad,                                                   &
-           cnst_znt,cnst_shflx,cnst_lhflx,cnst_ust,                           &
+           csound,cstar,hurr_vg,hurr_rad,hurr_vgpl,hurr_rotate,hurr_angle,    &
+           cnst_znt,cnst_shflx,cnst_lhflx,cnst_ust,ramp_time,                 &
            ddr,rlen,centerx,centery,                                          &
            gam_cp,gam_dr,                                                     &
            rad_solcon,rad_jday,rad_zenangle,rad_declin,rad_hrang,             &
            adapt_move_frq,                                                    &
            base_pbot,base_ptop,base_thbot,base_thtop,base_qvbot,base_qvtop,   &
-           base_tbot,base_ttop,base_pibot,base_pitop
+           base_tbot,base_ttop,base_pibot,base_pitop,                         &
+           les_subdomain_xlen,les_subdomain_ylen,                             &
+           les_subdomain_dlen,les_subdomain_trnslen,rtim,                     &
+           lsnudge_tau,lsnudge_start,lsnudge_end,lsnudge_ramp_time,           &
+           top_cd,side_cd,outunitconv,                                        &
+           recycle_width_dx,recycle_depth_m,                                  &
+           recycle_cap_loc_m,recycle_inj_loc_m
+
+!-----------------------------------------------------------------------
+
+      double precision ::                                                     &
+           tapfrq,rstfrq,statfrq,prclfrq,diagfrq,azimavgfrq,hifrqfrq
 
 !-----------------------------------------------------------------------
 
       character(len=maxstring) :: string
+      character(len=12) :: aunit
       character(len=12) :: cm1version
+      real :: cm1rversion
 
 !-----------------------------------------------------------------------
 
@@ -223,13 +242,15 @@
            time_mps2,time_mps4,time_mpq2,time_mptk2,time_mpb,        &
            time_parcels,time_rad,time_pbl,time_swath,time_pdef,      &
            time_prsrho,time_restart,time_poiss,time_diag,            &
-           time_azimavg,time_hifrq,time_ercyl
+           time_azimavg,time_hifrq,time_ercyl,time_tavg
       integer count_last
 
 !-----------------------------------------------------------------------
+!  Begin namelists:
 
       namelist /param0/ nx,ny,nz,ppnode,                                &
-                        timeformat,timestats,terrain_flag,procfiles
+                        timeformat,timestats,terrain_flag,procfiles,    &
+                        outunits
       namelist /param1/ dx,dy,dz,dtl,timax,run_time,                    &
                         tapfrq,rstfrq,statfrq,prclfrq
       namelist /param2/                                                 &
@@ -239,13 +260,14 @@
           apmasscon,idiff,mdiff,difforder,imoist,                       &
           ipbl,sgsmodel,tconfig,bcturbs,horizturb,doimpl,               &
           irdamp,hrdamp,psolver,ptype,ihail,iautoc,                     &
-          icor,lspgrad,eqtset,idiss,efall,rterm,                        &
+          icor,betaplane,lspgrad,eqtset,idiss,efall,rterm,              &
           wbc,ebc,sbc,nbc,bbc,tbc,irbc,roflux,nudgeobc,                 &
           isnd,iwnd,itern,iinit,                                        &
           irandp,ibalance,iorigin,axisymm,imove,iptra,npt,pdtra,        &
           iprcl,nparcels
       namelist /param3/ kdiff2,kdiff6,fcor,kdiv,alph,rdalpha,zd,xhd,alphobc, &
-                        umove,vmove,v_t,l_h,lhref1,lhref2,l_inf,ndcnst,csound
+                        umove,vmove,v_t,l_h,lhref1,lhref2,l_inf,ndcnst,nt_c, &
+                        csound,cstar
       namelist /param4/ stretch_x,dx_inner,dx_outer,nos_x_len,tot_x_len
       namelist /param5/ stretch_y,dy_inner,dy_outer,nos_y_len,tot_y_len
       namelist /param6/ stretch_z,ztop,str_bot,str_top,dz_bot,dz_top
@@ -293,7 +315,8 @@
               cecd,pertflx,cnstce,cnstcd,                                     &
               isftcflx,iz0tlnd,oml_hml0,oml_gamma,                            &
               set_flx,cnst_shflx,cnst_lhflx,                                  &
-              set_znt,cnst_znt,set_ust,cnst_ust
+              set_znt,cnst_znt,set_ust,cnst_ust,                              &
+              ramp_sgs,ramp_time,t2p_avg    
       namelist /param13/                                                      &
               prcl_th,prcl_t,prcl_prs,prcl_ptra,prcl_q,prcl_nc,               &
               prcl_km,prcl_kh,prcl_tke,prcl_dbz,prcl_b,prcl_vpg,prcl_vort,    &
@@ -302,6 +325,22 @@
               dodomaindiag,diagfrq
       namelist /param15/                                                      &
               doazimavg,azimavgfrq,rlen,do_adapt_move,adapt_move_frq
+      namelist /param17/                                                      &
+              les_subdomain_shape,les_subdomain_xlen,les_subdomain_ylen,      &
+              les_subdomain_dlen,les_subdomain_trnslen
+      namelist /param18/                                                      &
+              do_recycle_w,do_recycle_s,do_recycle_e,do_recycle_n,            &
+              recycle_width_dx,recycle_depth_m,                               &
+              recycle_cap_loc_m,recycle_inj_loc_m
+      namelist /param19/                                                         &
+              do_lsnudge,do_lsnudge_u,do_lsnudge_v,do_lsnudge_th,do_lsnudge_qv,  &
+              lsnudge_tau,lsnudge_start,lsnudge_end,lsnudge_ramp_time
+      namelist /param20/                                                      &
+              do_ib,ib_init,top_cd,side_cd
+      namelist /param21/                                                      &
+              hurr_vg,hurr_rad,hurr_vgpl,hurr_rotate
+
+!  End namelists:
 
     CONTAINS
 

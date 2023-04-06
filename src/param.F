@@ -13,7 +13,7 @@
                        yh,vh,rvh,yf,vf,rvf,xfref,xhref,yfref,yhref,     &
                        rds,sigma,rdsf,sigmaf,tauh,taus,                 &
                        zh,mh,rmh,cc1,cc2,tauf,zf,mf,rmf,f2d,dtu0,dtv0,  &
-                       gamk,gamwall,cmz,csz,ce1z,ce2z,                  &
+                       gamk,gamwall,                                    &
                        zs,gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy,gx,gxu,gy,gyv,  &
                        reqs_u,reqs_v,reqs_s,reqs_p,                     &
                        nw1,nw2,ne1,ne2,sw1,sw2,se1,se2,                 &
@@ -82,7 +82,7 @@
       real, dimension(ib:ie,jb:je,kb:ke+1) :: tauf,zf,mf,rmf
       real, intent(inout), dimension(ib:ie,jb:je) :: f2d
       real, intent(inout), dimension(ib:ie,jb:je) :: dtu0,dtv0
-      real, intent(inout), dimension(kb:ke) :: gamk,gamwall,cmz,csz,ce1z,ce2z
+      real, intent(inout), dimension(kb:ke) :: gamk,gamwall
       real, dimension(ib:ie,jb:je) :: zs
       real, dimension(itb:ite,jtb:jte) :: gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy
       real, dimension(itb:ite,jtb:jte,ktb:kte) :: gx,gxu,gy,gyv
@@ -115,7 +115,7 @@
       character(len=50) :: fname
 #endif
       real :: c1,c2,nominal_dx,nominal_dy,nominal_dz,z1,z2,z3,mult
-      real :: x1,x2,y1,y2,phi,beta0
+      real :: x1,x2,y1,y2,phi,beta0,max_z_out,test_len
       logical :: getvt,dothis,hrdamp_west,hrdamp_east,hrdamp_south,hrdamp_north
       double precision, dimension(:), allocatable :: xfdp,yfdp
 
@@ -128,15 +128,11 @@
 
       character(len=60) :: param_mp,param_sgs,param_pbl,param_sfclay,param_rad
 
-      logical :: doit
+      logical :: doit,getfall
 #ifdef MPI
       integer :: ntmp1,ntmp2,ntmp3,ntmp4,reqs,reqs1,reqs2,reqs3,reqs4
       integer, dimension(MPI_STATUS_SIZE) :: status
 #endif
-
-      real :: foor1,foor2
-      integer :: fooi1,fooi2,fooi3,fooi4,fooi5,fooi6,fooi7,fooi8,fooi9,fooi10
-      integer :: fooi11,fooi12,fooi13,fooi14,fooi15,fooi16,fooi17,fooi18,fooi19,fooi20
 
 !-----------------------------------------------------------------------
 !  for nssl microphysics:
@@ -196,27 +192,99 @@
 
       open(unit=20,file='namelist.input',form='formatted',status='old',    &
            access='sequential',err=8000)
-      read(20,nml=param1)
-      read(20,nml=param2)
-      read(20,nml=param3)
-      read(20,nml=param11)
-      read(20,nml=param12)
-      read(20,nml=param4)
-      read(20,nml=param5)
-      read(20,nml=param6)
-      read(20,nml=param7)
-      read(20,nml=param8)
-      read(20,nml=param9)
-      read(20,nml=param16)
-      read(20,nml=param10)
+
+      read(20,nml=param1,end=701)
+701   continue
+      rewind(20)
+
+      read(20,nml=param2,end=702)
+702   continue
+      rewind(20)
+
+      read(20,nml=param3,end=703)
+703   continue
+      rewind(20)
+
+      read(20,nml=param11,end=711)
+711   continue
+      rewind(20)
+
+      read(20,nml=param12,end=712)
+712   continue
+      rewind(20)
+
+      read(20,nml=param4,end=704)
+704   continue
+      rewind(20)
+
+      read(20,nml=param5,end=705)
+705   continue
+      rewind(20)
+
+      read(20,nml=param6,end=706)
+706   continue
+      rewind(20)
+
+      read(20,nml=param7,end=707)
+707   continue
+      rewind(20)
+
+      read(20,nml=param8,end=708)
+708   continue
+      rewind(20)
+
+      read(20,nml=param9,end=709)
+709   continue
+      rewind(20)
+
+      read(20,nml=param16,end=716)
+716   continue
+      rewind(20)
+
+      read(20,nml=param10,end=710)
+710   continue
+      rewind(20)
+
       if( iprcl.eq.1 )then
-        read(20,nml=param13)
+        read(20,nml=param13,end=713)
+713     continue
+        rewind(20)
       endif
-      read(20,nml=param14)
-      read(20,nml=param15)
+
+      read(20,nml=param14,end=714)
+714   continue
+      rewind(20)
+
+      read(20,nml=param15,end=715)
+715   continue
+      rewind(20)
+
       IF ( ptype.eq.26 .or. ptype.eq.27 .or. ptype.eq.28 ) THEN
-         read(20,nml=nssl2mom_params)
+         read(20,nml=nssl2mom_params,end=751)
+751      continue
+         rewind(20)
       ENDIF
+
+      read(20,nml=param17,end=717)
+717   continue
+      rewind(20)
+
+      read(20,nml=param18,end=718)
+718   continue
+      rewind(20)
+
+      read(20,nml=param19,end=719)
+719   continue
+      rewind(20)
+
+      read(20,nml=param20,end=720)
+720   continue
+      rewind(20)
+
+      read(20,nml=param21,end=721)
+721   continue
+      rewind(20)
+
       close(unit=20)
 
 #ifdef MPI
@@ -228,10 +296,10 @@
       call MPI_BCAST(dtl   ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(timax ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(run_time,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(tapfrq,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(rstfrq,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(statfrq,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(prclfrq,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(tapfrq,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(rstfrq,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(statfrq,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(prclfrq,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
       call MPI_BCAST(cm1setup ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(testcase,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
@@ -264,6 +332,7 @@
       call MPI_BCAST(ihail    ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(iautoc   ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(icor     ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(betaplane,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(lspgrad  ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(eqtset   ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(idiss    ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
@@ -310,7 +379,9 @@
       call MPI_BCAST(lhref2 ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(l_inf  ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(ndcnst ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(nt_c   ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(csound ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(cstar  ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
 
       call MPI_BCAST(stretch_x,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(dx_inner ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
@@ -523,15 +594,53 @@
       call MPI_BCAST(cnst_lhflx,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(cnst_znt  ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(cnst_ust  ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(ramp_sgs  ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(ramp_time ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(t2p_avg   ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
       call MPI_BCAST(dodomaindiag,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(diagfrq   ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(diagfrq   ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
       call MPI_BCAST(doazimavg     ,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(azimavgfrq    ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(azimavgfrq    ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(rlen          ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(do_adapt_move ,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_BCAST(adapt_move_frq,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_BCAST(les_subdomain_shape   ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(les_subdomain_xlen    ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(les_subdomain_ylen    ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(les_subdomain_dlen    ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(les_subdomain_trnslen ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_BCAST(do_recycle_w,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(do_recycle_s,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(do_recycle_e,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(do_recycle_n,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(recycle_width_dx ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(recycle_depth_m  ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(recycle_cap_loc_m,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(recycle_inj_loc_m,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_BCAST(do_lsnudge       ,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(do_lsnudge_u     ,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(do_lsnudge_v     ,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(do_lsnudge_th    ,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(do_lsnudge_qv    ,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(lsnudge_tau      ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(lsnudge_start    ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(lsnudge_end      ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(lsnudge_ramp_time,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_BCAST( do_ib           ,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST( ib_init         ,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST( top_cd          ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST( side_cd         ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_BCAST( hurr_vg         ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST( hurr_rad        ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST( hurr_vgpl       ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST( hurr_rotate     ,1,MPI_REAL   ,0,MPI_COMM_WORLD,ierr)
 
       IF ( ptype.eq.26 .or. ptype.eq.27 .or. ptype.eq.28 ) THEN
       call MPI_BCAST(ccn       ,1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
@@ -576,6 +685,18 @@
       imoist = max( imoist , 0 )
       imoist = min( imoist , 1 )
       if(imoist.ne.1) efall=0
+
+      icor = max( icor , 0 )
+      icor = min( icor , 1 )
+
+      if(icor.eq.0) betaplane = 0
+      betaplane = max( betaplane , 0 )
+      betaplane = min( betaplane , 1 )
+
+      ! Cannot use beta plane for axisymmetric simulations, 
+      ! or 2d (x,z) simulations:
+      if( axisymm.eq.1 .or. ny.le.3 )  betaplane = 0
+
       if(imove.eq.0) umove=0.0
       if(imove.eq.0) vmove=0.0
       if(axisymm.eq.1) do_adapt_move=.false.
@@ -593,6 +714,7 @@
       irst = min( irst , 1 )
       if( cm1setup.eq.2 ) tconfig = 2
       if( psolver.eq.4 .or. psolver.eq.5 ) roflux = 1
+      if( cstar.lt.0.1 ) cstar = 30.0
 
       if( irdamp.eq.0 .and. hrdamp.eq.0 ) rdalpha = 0.0
       if( irdamp.ge.1 .and. hrdamp.ge.1 ) hrdamp = irdamp
@@ -618,6 +740,27 @@
           dodomaindiag = .true.
           diagfrq = tapfrq
         endif
+      ENDIF
+
+      ramp_time = max( ramp_time , 1.0e-10 )
+
+      if( cm1setup.eq.1 .or. cm1setup.eq.4 )  idoles = .true.
+      if( cm1setup.eq.2 .or. cm1setup.eq.4 )  idopbl = .true.
+
+      !------------
+
+      IF( nk.lt.8 )THEN
+        if(myid.eq.0)then
+        print *
+        print *,'  nk   = ',nk
+        print *
+        print *,'  nk must be >= 8 '
+        print *
+        endif
+#ifdef MPI
+        call MPI_BARRIER (MPI_COMM_WORLD,ierr)
+#endif
+        call stopcm1
       ENDIF
 
       !------------
@@ -684,6 +827,26 @@
 !------------------------------------------------
 !  begin non-fatal checks:
 
+      !-----
+      IF( isnd.eq.7 )THEN
+        IF( iwnd.gt.0 )THEN
+        if(myid.eq.0)then
+        print *,'  -------------------------------- '
+        print *
+        print *,'  isnd = ',isnd
+        print *
+        print *,'  but iwnd = ',iwnd
+        print *
+        print *,'  setting iwnd to 0; using wind profile from input_sounding '
+        print *
+        print *,'  (if you want to use iwnd >= 1 with a thermodynamic sounding '
+        print *,'   from input_sounding, then set isnd = 17)'
+        print *
+        print *,'  -------------------------------- '
+        endif
+        iwnd = 0
+        ENDIF
+      ENDIF
       !-----
       IF( sfcmodel.ge.1 )THEN
         IF( oceanmodel.le.0 )THEN
@@ -860,7 +1023,7 @@
       ENDIF
 #endif
       !-----
-      IF( cm1setup.eq.2 .and. (ipbl.eq.1.or.ipbl.eq.3.or.ipbl.eq.4.or.ipbl.eq.5.or.ipbl.eq.6) .and. abs(l_inf).gt.1.0e-6 )THEN
+      IF( idopbl .and. (ipbl.eq.1.or.ipbl.eq.3.or.ipbl.eq.4.or.ipbl.eq.5.or.ipbl.eq.6) .and. abs(l_inf).gt.1.0e-6 )THEN
         if(myid.eq.0)then
         print *,'  -------------------------------- '
         print *
@@ -903,11 +1066,11 @@
         endif
       ENDIF
       !-----
-      IF( cm1setup.ne.1 .and. sgsmodel.ge.1 )THEN
+      IF( ( .not. idoles ) .and. sgsmodel.ge.1 )THEN
         if(myid.eq.0)then
         print *,'  -------------------------------- '
         print *
-        print *,'  cm1setup = ',cm1setup
+        print *,'  idoles = ',idoles
         print *
         print *,'  ... setting sgsmodel to 0 ... '
         print *
@@ -1006,12 +1169,12 @@
 !  begin fatal checks  (ie, model stops)
 
       !-----
-      IF( cm1setup.lt.0 .or. cm1setup.gt.3 )THEN
+      IF( cm1setup.lt.0 .or. cm1setup.gt.4 )THEN
         if(myid.eq.0)then
         print *
         print *,'  cm1setup = ',cm1setup
         print *
-        print *,'  cm1setup must be either 0, 1, 2, or 3'
+        print *,'  cm1setup must be either 0, 1, 2, 3, 4'
         print *
         print *,'   stopping model .... '
         print *
@@ -1214,14 +1377,15 @@
         call stopcm1
       ENDIF
       !-----
-      IF( cm1setup.eq.1 )THEN
+      IF( idoles )THEN
       IF( sgsmodel.lt.0 .or. sgsmodel.gt.6 )THEN
         if(myid.eq.0)then
         print *
+        print *,'  idoles   = ',idoles
         print *,'  cm1setup = ',cm1setup
         print *,'  sgsmodel  = ',sgsmodel
         print *
-        print *,'  for cm1setup=1, sgsmodel must be either 0,1,2,3,4,5,6 '
+        print *,'  for idoles, sgsmodel must be either 0,1,2,3,4,5,6 '
         print *
         print *,'   stopping model .... '
         print *
@@ -1233,12 +1397,12 @@
       ENDIF
       ENDIF
       !-----
-      IF( cm1setup.eq.1 )THEN
+      IF( idoles )THEN
       IF( sgsmodel.ge.3 .and. sgsmodel.le.6 )THEN
       IF( terrain_flag )THEN
         if(myid.eq.0)then
         print *
-        print *,'  cm1setup      = ',cm1setup
+        print *,'  idoles        = ',idoles
         print *,'  sgsmodel      = ',sgsmodel
         print *,'  terrain_flag  = ',terrain_flag
         print *
@@ -1256,13 +1420,13 @@
       ENDIF
       !-----
       IF( horizturb.ge.1 )THEN
-      IF( cm1setup.ne.2 )THEN
+      IF( .not. idopbl )THEN
         if(myid.eq.0)then
         print *
         print *,'  horizturb = ',horizturb
-        print *,'  cm1setup  = ',cm1setup
+        print *,'  idopbl    = ',idopbl
         print *
-        print *,'  horizturb is only appropriate for cm1setup=2 '
+        print *,'  horizturb is only appropriate for idopbl '
         print *
         print *,'   stopping model .... '
         print *
@@ -1274,14 +1438,14 @@
       ENDIF
       ENDIF
       !-----
-      IF( cm1setup.eq.2 )THEN
+      IF( idopbl )THEN
       IF( ipbl.le.0 )THEN
         if(myid.eq.0)then
         print *
-        print *,'  cm1setup = ',cm1setup
+        print *,'  idopbl   = ',idopbl
         print *,'  ipbl     = ',ipbl
         print *
-        print *,'  cm1setup=2 requires ipbl >= 1 '
+        print *,'  idopbl requires ipbl >= 1 '
         print *
         print *,'   stopping model .... '
         print *
@@ -1294,13 +1458,14 @@
       ENDIF
       !-----
       IF( ipbl.ge.1 )THEN
-      IF( cm1setup.ne.2 )THEN
+      IF( .not. idopbl )THEN
         if(myid.eq.0)then
         print *
         print *,'  ipbl     = ',ipbl
+        print *,'  idopbl   = ',idopbl
         print *,'  cm1setup = ',cm1setup
         print *
-        print *,'  ipbl >= 1  requires cm1setup=2 '
+        print *,'  ipbl >= 1  requires cm1setup=2,4 '
         print *
         print *,'   stopping model .... '
         print *
@@ -1502,7 +1667,7 @@
         call stopcm1
       ENDIF
       !-----
-      IF( cm1setup.eq.2 .and. ipbl.eq.6 .and. sfcmodel.ne.7 )THEN
+      IF( idopbl .and. ipbl.eq.6 .and. sfcmodel.ne.7 )THEN
         if(myid.eq.0)then
         print *
         print *,'  ipbl         = ',ipbl
@@ -1519,13 +1684,33 @@
         call stopcm1
       ENDIF
       !-----
-      IF(imoist.eq.1 .and. ndcnst.le.1.0e-6)THEN
+      IF(imoist.eq.1 .and. ptype.eq.5 .and. ndcnst.le.1.0e-6)THEN
         if(myid.eq.0)then
         print *
         print *,'  imoist  = ',imoist
+        print *,'  ptype   = ',ptype
         print *,'  ndcnst  = ',ndcnst
         print *
-        print *,'  ndcnst is too small.  Please enter a larger value '
+        print *,'  ndcnst is too small.  Please enter an appropriate value '
+        print *,'  in the param3 section of namelist.input '
+        print *
+        print *,'   stopping model .... '
+        print *
+        endif
+#ifdef MPI
+        call MPI_BARRIER (MPI_COMM_WORLD,ierr)
+#endif
+        call stopcm1
+      ENDIF
+      !-----
+      IF(imoist.eq.1 .and. ptype.eq.3 .and. nt_c.le.1.0e-6)THEN
+        if(myid.eq.0)then
+        print *
+        print *,'  imoist  = ',imoist
+        print *,'  ptype   = ',ptype
+        print *,'  nt_c    = ',nt_c   
+        print *
+        print *,'  nt_c is too small.  Please enter an appropriate value '
         print *,'  in the param3 section of namelist.input '
         print *
         print *,'   stopping model .... '
@@ -1843,12 +2028,12 @@
         call stopcm1
       ENDIF
       !-----
-      IF( axisymm.eq.1 .and. cm1setup.eq.1 )THEN
+      IF( axisymm.eq.1 .and. idoles )THEN
         if(myid.eq.0)then
         print *
         print *,'  cm1setup = ',cm1setup
         print *
-        print *,'  axisymm=1 cannot be used with cm1setup=1 '
+        print *,'  axisymm=1 cannot be used with cm1setup=1,4 '
         print *
         print *,'   stopping model .... '
         print *
@@ -2087,13 +2272,13 @@
         call stopcm1
       ENDIF
       !-----
-      IF( radopt.eq.2 .and. ( ptype.ne.3 .and. ptype.ne.5 )  )THEN
+      IF( radopt.eq.2 .and. ( ptype.ne.3 .and. ptype.ne.5 .and. ptype.ne.50 .and. ptype.ne.51 .and. ptype.ne.52 .and. ptype.ne.53 .and. ptype.ne.55 )  )THEN
         if(myid.eq.0)then
         print *
         print *,'  radopt   = ',radopt
         print *,'  ptype    = ',ptype
         print *
-        print *,'  radopt=2 requires ptype=3,5 (for now) '
+        print *,'  radopt=2 requires ptype=3,5,50,51,52,53,55 (for now) '
         print *
         print *,'   stopping model .... '
         print *
@@ -2135,7 +2320,7 @@
 #ifdef MPI
         call MPI_BARRIER (MPI_COMM_WORLD,ierr)
 #endif
-        !call stopcm1
+        call stopcm1
       ENDIF
       !-----
 !      IF( (sfcmodel.eq.2.or.sfcmodel.eq.3.or.sfcmodel.eq.4) .and. imoist.eq.0 )THEN
@@ -2313,12 +2498,14 @@
         IF( (ni.lt.3).or.(nj.lt.3) )THEN
           if(myid.eq.0)then
           print *
+          print *,'  myid = ',myid
           print *,'  ni = ',ni
           print *,'  nj = ',nj
           print *,'  both ni and nj must be >= 3 '
           print *
           endif
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
+          ! bug fix, cm1r20.3: do not wait for all processors
+!!!          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
           call stopcm1
         ENDIF
 
@@ -2331,7 +2518,8 @@
           print *,'  nodex*nodey,ppnode=',nodex*nodey,ppnode
           print *
           endif
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
+          ! bug fix, cm1r20.3: do not wait for all processors
+!!!          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
           call stopcm1
         endif
 
@@ -2518,7 +2706,7 @@
         if( ptype.eq.53 ) param_mp = 'Predicted Particle Property (P3)'
         if( ptype.eq.55 ) param_mp = 'Jensen_ISHMAEL'
       endif
-      if( cm1setup.eq.1 )then
+      if( idoles )then
         ! LES subgrid:
         if( sgsmodel.eq.1 ) param_sgs = 'Deardorff TKE scheme'
         if( sgsmodel.eq.2 ) param_sgs = 'Smagorinsky scheme'
@@ -2527,7 +2715,7 @@
         if( sgsmodel.eq.5 ) param_sgs = 'NBA (Deardorff-type TKE version)'
         if( sgsmodel.eq.6 ) param_sgs = 'NBA (Smagorinksy-type version)'
       endif
-      if( cm1setup.eq.2 )then
+      if( idopbl )then
         ! PBL:
         if( ipbl.eq.1 ) param_pbl = 'YSU (Yonsei University)'
         if( ipbl.eq.2 ) param_pbl = 'CM1 simple scheme (Bryan-Rotunno, Louis-type scheme)'
@@ -2565,6 +2753,9 @@
       endif
       if(cm1setup.eq.3 )then
         if(dowr) write(outfile,172) '  cm1setup = ',cm1setup,': Direct Numerical Simulation (DNS) '
+      endif
+      if(cm1setup.eq.4 )then
+        if(dowr) write(outfile,172) '  cm1setup = ',cm1setup,': Large-Eddy Simulation (LES) embedded within Mesoscale Model (with PBL parameterization) '
       endif
       if(dowr) write(outfile,171)
       if(dowr) write(outfile,171)
@@ -2652,6 +2843,7 @@
       if(dowr) write(outfile,*) 'ihail     =',ihail
       if(dowr) write(outfile,*) 'iautoc    =',iautoc
       if(dowr) write(outfile,*) 'icor      =',icor
+      if(dowr) write(outfile,*) 'betaplane =',betaplane
       if(dowr) write(outfile,*) 'lspgrad   =',lspgrad
       if(dowr) write(outfile,*) 'eqtset    =',eqtset
       if(dowr) write(outfile,*) 'idiss     =',idiss
@@ -2698,6 +2890,9 @@
       if(dowr) write(outfile,*) 'lhref2    =',lhref2
       if(dowr) write(outfile,*) 'l_inf     =',l_inf
       if(dowr) write(outfile,*) 'ndcnst    =',ndcnst
+      if(dowr) write(outfile,*) 'nt_c      =',nt_c
+      if(dowr) write(outfile,*) 'csound    =',csound
+      if(dowr) write(outfile,*) 'cstar     =',cstar
       if(dowr) write(outfile,*)
       if(dowr) write(outfile,*) 'radopt    =',radopt
       if(dowr) write(outfile,*) 'dtrad     =',dtrad
@@ -2734,6 +2929,9 @@
       if(dowr) write(outfile,*) 'cnst_znt  =',cnst_znt
       if(dowr) write(outfile,*) 'set_ust   =',set_ust
       if(dowr) write(outfile,*) 'cnst_ust  =',cnst_ust
+      if(dowr) write(outfile,*) 'ramp_sgs  =',ramp_sgs
+      if(dowr) write(outfile,*) 'ramp_time =',ramp_time
+      if(dowr) write(outfile,*) 't2p_avg   =',t2p_avg
       if(dowr) write(outfile,*)
       if(dowr) write(outfile,*) 'stretch_x =',stretch_x
       if(dowr) write(outfile,*) 'dx_inner  =',dx_inner
@@ -2782,6 +2980,12 @@
       if(dowr) write(outfile,*) 'var20     =',var20
       if(dowr) write(outfile,*)
 
+      if(dowr) write(outfile,*) 'hurr_vg     = ',hurr_vg
+      if(dowr) write(outfile,*) 'hurr_rad    = ',hurr_rad
+      if(dowr) write(outfile,*) 'hurr_vgpl   = ',hurr_vgpl
+      if(dowr) write(outfile,*) 'hurr_rotate = ',hurr_rotate
+      if(dowr) write(outfile,*)
+
 
       IF ( ptype >= 26 .and. dowr ) THEN
         write(outfile,NML=nssl2mom_params)
@@ -2816,6 +3020,44 @@
       if(dowr) write(outfile,*) '  pi_dp = ',pi_dp
       if(dowr) write(outfile,*) '  pi_qp = ',pi_qp
       if(dowr) write(outfile,*)
+
+!--------------------------------------------------------------
+!  some parameters related to subgrid turbulence:
+
+      dohturb = .false.
+      dovturb = .false.
+
+      if( idoles .or. cm1setup.eq.3 )then
+        ! LES or DNS
+        dohturb = .true.
+        dovturb = .true.
+      endif
+
+      if( cm1setup.eq.2 .and. horizturb.eq.1 )then
+        ! horizontal Smagorinsky
+        dohturb = .true.
+      endif
+
+      if(dowr) write(outfile,*)
+      if(dowr) write(outfile,*) '  dohturb,dovturb = ',dohturb,dovturb
+
+    !----------
+    !  use average surface conditions to determine ust,mol,etc:
+    !
+    !  For now, use this for a few well-established test cases. 
+    !  In future: make this a namelist variable
+
+    if( sfcmodel.eq.1 .or. sfcmodel.eq.5 )then
+      if( testcase.eq.1 .or. testcase.eq.2 .or. testcase.eq.9 .or. testcase.eq.11 .or. testcase.eq.14 )then
+        use_avg_sfc = .true.
+      else
+        use_avg_sfc = .false.
+      endif
+    endif
+
+      if(dowr) write(outfile,*)
+      if(dowr) write(outfile,*) '  use_avg_sfc = ',use_avg_sfc
+
 
 !--------------------------------------------------------------
 !  Configuration for simulations with moisture
@@ -4336,18 +4578,20 @@
       nqg = 0
       nnci = 0
       nncc = 0
+      nqi2 = 0
+      nqi3 = 0
 
       do n=1,numq
         if( qname(n).eq.'qc ' .or. qname(n).eq.'ql ' ) nqc = n
         if( qname(n).eq.'qr ' ) nqr = n
-        if( qname(n).eq.'qi ' ) nqi = n
+        if( qname(n).eq.'qi ' .or. qname(n).eq.'qi1' ) nqi = n
         if( qname(n).eq.'qs ' ) nqs = n
         if( qname(n).eq.'qg ' ) nqg = n
         if( qname(n).eq.'nci' ) nnci = n
         if( qname(n).eq.'ncc' ) nncc = n
+        if( qname(n).eq.'qi2' ) nqi2 = n
+        if( qname(n).eq.'qi3' ) nqi3 = n
       enddo
-
-      if( ptype.eq.55 ) nqi = 4
 
       if(numq .gt. maxq)then
         if(dowr) write(outfile,*)
@@ -4371,6 +4615,8 @@
       if(dowr) write(outfile,*) 'nqc       =',nqc
       if(dowr) write(outfile,*) 'nqr       =',nqr
       if(dowr) write(outfile,*) 'nqi       =',nqi
+      if(dowr) write(outfile,*) 'nqi2      =',nqi2
+      if(dowr) write(outfile,*) 'nqi3      =',nqi3
       if(dowr) write(outfile,*) 'nqs       =',nqs
       if(dowr) write(outfile,*) 'nqg       =',nqg
       if(dowr) write(outfile,*) 'nnci      =',nnci
@@ -4522,8 +4768,20 @@
         output_zs = 1
         output_zh = 1
       endif
-      if( imoist.eq.0 .or. ptype.ne.5 )then
+      getfall = .false.
+      if( ptype.eq.3 .or. ptype.eq.5 ) getfall = .true.
+      if( imoist.eq.0 .or. (.not.getfall) )then
         output_fallvel = 0
+      endif
+
+      if( outunits.eq.2 )then
+        ! units of distance in output file are meters
+        outunitconv = 1.0
+        aunit = 'meters'
+      else
+        ! units of distance in output file are km
+        outunitconv = 0.001
+        aunit = 'km'
       endif
 
       if(dowr) write(outfile,*)
@@ -4611,14 +4869,6 @@
       if(dowr) write(outfile,*) 'restart_file_diags   = ',restart_file_diags
       if(dowr) write(outfile,*) 'restart_use_theta    = ',restart_use_theta
       if(dowr) write(outfile,*) 'restart_reset_frqtim = ',restart_reset_frqtim
-      if(dowr) write(outfile,*)
-
-      maxk = nk
-
-      maxk = min( maxk , nk )
-      maxk = max( maxk , 1 )
-
-      if(dowr) write(outfile,*) '  maxk = ',maxk
       if(dowr) write(outfile,*)
 
 !--------------------------------------------------------------
@@ -4726,8 +4976,16 @@
         ker=1
       endif
 
-      if( ipbl.eq.1 .or. ipbl.eq.3 .or. ipbl.eq.4 .or. ipbl.eq.5 .or. ipbl.eq.6 )then
-        ! for YSU, GFSEDMF, MYNN, MYJ boundary-layer schemes:
+      ibpbl=1
+      iepbl=1
+      jbpbl=1
+      jepbl=1
+      kbpbl=1
+      kepbl=1
+      npbl=1
+
+      if( (cm1setup.eq.2.or.cm1setup.eq.4) .and. ipbl.ge.1 )then
+        ! for boundary-layer schemes:
         ibb=ib
         ieb=ie
         jbb=jb
@@ -4745,7 +5003,7 @@
         use_pbl = .false.
       endif
 
-      if( ( cm1setup.eq.2 .and. ( ipbl.eq.4 .or. ipbl.eq.5 ) ) .or. sfcmodel.eq.6 )then
+      if( ( idopbl .and. ( ipbl.eq.4 .or. ipbl.eq.5 ) ) .or. sfcmodel.eq.6 )then
         ! for MYNN boundary-layer:
         ibmynn=ib
         iemynn=ie
@@ -4754,6 +5012,14 @@
         kbmynn=kb
         kemynn=ke
         iusetke = .true.
+
+        ibpbl=ib
+        iepbl=ie
+        jbpbl=1
+        jepbl=1
+        kbpbl=kb
+        kepbl=ke+1
+        npbl = 57
       else
         ibmynn=1
         iemynn=1
@@ -4790,6 +5056,14 @@
         jemyj=je
         kbmyj=kb
         kemyj=ke+1
+
+        ibpbl=ib
+        iepbl=ie
+        jbpbl=jb
+        jepbl=je
+        kbpbl=kb
+        kepbl=ke+1
+        npbl = 28
       else
         ibmyj=1
         iemyj=1
@@ -4811,7 +5085,7 @@
         jel=1
       endif
 
-      if( cm1setup.eq.1 .or. cm1setup.eq.2 .or. ipbl.ge.1 .or. cm1setup.eq.3 )then
+      if( idoles .or. idopbl .or. ipbl.ge.1 .or. cm1setup.eq.3 )then
         iusekm = 1
         iusekh = 1
         ibc=ib
@@ -4831,7 +5105,7 @@
         kec=1
       endif
 
-      if( cm1setup.eq.1 .and. ( sgsmodel.eq.1 .or. sgsmodel.eq.3 .or. sgsmodel.eq.4 .or. sgsmodel.eq.5 ) )then
+      if( idoles .and. ( sgsmodel.eq.1 .or. sgsmodel.eq.3 .or. sgsmodel.eq.4 .or. sgsmodel.eq.5 ) )then
         iusetke = .true.
         ibt=ib
         iet=ie
@@ -5019,11 +5293,14 @@
         td_vadv = ntdiag
 
         if( cm1setup.ge.1 )then
-          ntdiag = ntdiag + 1
-          td_hturb = ntdiag
-
-          ntdiag = ntdiag + 1
-          td_vturb = ntdiag
+          if(dohturb)then
+            ntdiag = ntdiag + 1
+            td_hturb = ntdiag
+          endif
+          if(dovturb)then
+            ntdiag = ntdiag + 1
+            td_vturb = ntdiag
+          endif
         endif
 
         if( hadvordrs.eq.3 .or. hadvordrs.eq.5 .or. hadvordrs.eq.7 .or. hadvordrs.eq.9 .or. advwenos.ge.1 )then
@@ -5056,7 +5333,7 @@
           td_rdamp = ntdiag
         endif
 
-        if( testcase.eq.10 )then
+        if( testcase.eq.10 .or. do_lsnudge )then
           ntdiag = ntdiag + 1
           td_nudge = ntdiag
         endif
@@ -5143,7 +5420,7 @@
       qd_subl  = 0
 
       ! dbz (new for cm1r19)
-      IF( output_dbz.eq.1 .or. restart_file_dbz )THEN
+      IF( output_dbz.eq.1 .or. restart_file_dbz .or. (imoist.eq.1.and.ptype.eq.3) )THEN
         ibdq = ib
         iedq = ie
         jbdq = jb
@@ -5157,12 +5434,12 @@
       getvt = .false.
       IF( efall.eq.1 ) getvt = .true.
       IF( output_fallvel.eq.1 ) getvt = .true.
-      IF( imoist.eq.1 .and. dodomaindiag .and. ptype.eq.5 ) getvt = .true.
+      IF( imoist.eq.1 .and. dodomaindiag .and. ( ptype.eq.3 .or. ptype.eq.5 ) ) getvt = .true.
       IF( imoist.eq.1 .and. dodomaindiag .and. testcase.eq.5 ) getvt = .true.
 
       IF( getvt )THEN
-        if( imoist.eq.1 .and. ptype.eq.5 )then
-          ! Morrison scheme:
+        if( imoist.eq.1 .and. ( ptype.eq.3 .or. ptype.eq.5 ) )then
+          ! Thompson and Morrison schemes only (for now):
           ibdq = ib
           iedq = ie
           jbdq = jb
@@ -5202,11 +5479,14 @@
         qd_vadv = nqdiag
 
         if( cm1setup.ge.1 .or. ipbl.ge.1 )then
-          nqdiag = nqdiag + 1
-          qd_hturb = nqdiag
-
-          nqdiag = nqdiag + 1
-          qd_vturb = nqdiag
+          if(dohturb)then
+            nqdiag = nqdiag + 1
+            qd_hturb = nqdiag
+          endif
+          if(dovturb)then
+            nqdiag = nqdiag + 1
+            qd_vturb = nqdiag
+          endif
         endif
 
         if( hadvordrs.eq.3 .or. hadvordrs.eq.5 .or. hadvordrs.eq.7 .or. hadvordrs.eq.9 .or. advwenos.ge.1 )then
@@ -5234,7 +5514,7 @@
           qd_mp = nqdiag
         endif
 
-        if( testcase.eq.10 )then
+        if( testcase.eq.10 .or. do_lsnudge )then
           nqdiag = nqdiag + 1
           qd_nudge = nqdiag
         endif
@@ -5279,6 +5559,7 @@
       ud_vediff  = 0
       ud_pgrad   = 0
       ud_rdamp   = 0
+      ud_nudge   = 0
       ud_cor     = 0
       ud_cent    = 0
       ud_pbl     = 0
@@ -5302,11 +5583,14 @@
         ud_vadv = nudiag
 
         if( cm1setup.ge.1 .or. ipbl.ge.1 )then
-          nudiag = nudiag+1
-          ud_hturb = nudiag
-
-          nudiag = nudiag+1
-          ud_vturb = nudiag
+          if(dohturb)then
+            nudiag = nudiag+1
+            ud_hturb = nudiag
+          endif
+          if(dovturb)then
+            nudiag = nudiag+1
+            ud_vturb = nudiag
+          endif
         endif
 
         if( hadvordrv.eq.3 .or. hadvordrv.eq.5 .or. hadvordrv.eq.7 .or. hadvordrv.eq.9 .or. advwenov.ge.1 )then
@@ -5335,6 +5619,11 @@
         if( irdamp.ge.1 .or. hrdamp.ge.1 )then
           nudiag = nudiag+1
           ud_rdamp = nudiag
+        endif
+
+        if( do_lsnudge )then
+          nudiag = nudiag+1
+          ud_nudge = nudiag
         endif
 
         if( icor.eq.1 )then
@@ -5375,6 +5664,7 @@
       vd_vediff  = 0
       vd_pgrad   = 0
       vd_rdamp   = 0
+      vd_nudge   = 0
       vd_cor     = 0
       vd_cent    = 0
       vd_pbl     = 0
@@ -5398,11 +5688,14 @@
         vd_vadv = nvdiag
 
         if( cm1setup.ge.1 .or. ipbl.ge.1 )then
-          nvdiag = nvdiag+1
-          vd_hturb = nvdiag
-
-          nvdiag = nvdiag+1
-          vd_vturb = nvdiag
+          if(dohturb)then
+            nvdiag = nvdiag+1
+            vd_hturb = nvdiag
+          endif
+          if(dovturb)then
+            nvdiag = nvdiag+1
+            vd_vturb = nvdiag
+          endif
         endif
 
         if( hadvordrv.eq.3 .or. hadvordrv.eq.5 .or. hadvordrv.eq.7 .or. hadvordrv.eq.9 .or. advwenov.ge.1 )then
@@ -5431,6 +5724,11 @@
         if( irdamp.ge.1 .or. hrdamp.ge.1 )then
           nvdiag = nvdiag+1
           vd_rdamp = nvdiag
+        endif
+
+        if( do_lsnudge )then
+          nvdiag = nvdiag+1
+          vd_nudge = nvdiag
         endif
 
         if( icor.eq.1 )then
@@ -5492,11 +5790,14 @@
         wd_vadv = nwdiag
 
         if( cm1setup.ge.1 .or. ipbl.ge.1 )then
-          nwdiag = nwdiag+1
-          wd_hturb = nwdiag
-
-          nwdiag = nwdiag+1
-          wd_vturb = nwdiag
+          if(dohturb)then
+            nwdiag = nwdiag+1
+            wd_hturb = nwdiag
+          endif
+          if(dovturb)then
+            nwdiag = nwdiag+1
+            wd_vturb = nwdiag
+          endif
         endif
 
         if( hadvordrv.eq.3 .or. hadvordrv.eq.5 .or. hadvordrv.eq.7 .or. hadvordrv.eq.9 .or. advwenov.ge.1 )then
@@ -5551,7 +5852,7 @@
       kd_adv   = 0
       kd_turb  = 0
 
-      IF( cm1setup.eq.1 .and. dodomaindiag .and. iusetke )THEN
+      IF( idopbl .and. dodomaindiag .and. iusetke )THEN
 
         ibdk = ib
         iedk = ie
@@ -5645,11 +5946,11 @@
 
 #ifdef MPI
       mynode = int( float(myid)/float(ppnode) )
-      nodemaster = mynode * ppnode
+      nodeleader = mynode * ppnode
       nodes = nodex * nodey / ppnode
 #else
       mynode = 0
-      nodemaster = 0
+      nodeleader = 0
       nodes = 1
       ppnode = 1
 #endif
@@ -5679,7 +5980,7 @@
 
     IF( output_filetype.eq.1 .or. output_filetype.eq.2 )THEN
 
-      IF( myid.eq.nodemaster )THEN
+      IF( myid.eq.nodeleader )THEN
 
         d2i   = (ni+1)*nodex
         d2is  = nx
@@ -5732,7 +6033,7 @@
     IF( rstfrq.gt.0.0 .and. rstfrq.le.timax )THEN
     IF( restart_filetype.eq.1 .or. restart_filetype.eq.2 .or. restart_filetype.eq.3 )THEN
 
-      IF( myid.eq.nodemaster )THEN
+      IF( myid.eq.nodeleader )THEN
 
         d2i   = (ni+1)*nodex
         d2is  = nx
@@ -5767,7 +6068,7 @@
 
       if(dowr) write(outfile,*)
       if(dowr) write(outfile,*) '  myid,mynode             = ',myid,mynode
-      if(dowr) write(outfile,*) '  nodemaster,nodes,ppnode = ',nodemaster,nodes,ppnode
+      if(dowr) write(outfile,*) '  nodeleader,nodes,ppnode = ',nodeleader,nodes,ppnode
       if(dowr) write(outfile,*) '  nodex,nodey             = ',nodex,nodey
       if(dowr) write(outfile,*) '  nimax,njmax             = ',nimax,njmax
       if(dowr) write(outfile,*)
@@ -5989,15 +6290,6 @@
 
 !------------------------------------------------------------------
 !  "constants" in subgrid turbulence schemes:
-
-      if( cm1setup.eq.1 )then
-        do k=1,nk
-          cmz(k) = c_m
-          ce1z(k) = cmz(k) * c_l * c_l * ( 1.0 / ri_c - 1.0 )
-          ce2z(k) = max( 0.0 , cmz(k) * pi * pi - ce1z(k) )
-          csz(k) = ( cmz(k) * cmz(k) * cmz(k) / ( ce1z(k) + ce2z(k) ) )**0.25
-        enddo
-      endif
 
       IF( dowr .and. ( sgsmodel.ge.1 ) )THEN
         write(outfile,*)
@@ -6481,6 +6773,8 @@
       if(dowr) write(outfile,*) 'timestats    =',timestats
       if(dowr) write(outfile,*) 'terrain_flag =',terrain_flag
       if(dowr) write(outfile,*) 'procfiles    =',procfiles
+      if(dowr) write(outfile,*) 'outunits     =',outunits
+      if(dowr) write(outfile,*) 'outunitconv  =',outunitconv
 
 
       if(dowr) write(outfile,*)
@@ -6492,8 +6786,13 @@
       if(dowr) write(outfile,130) 'kb,kbm,kbi,kbc,kbt=',kb,kbm,kbi,kbc,kbt
       if(dowr) write(outfile,130) 'ke,kem,kei,kec,ket=',ke,kem,kei,kec,ket
 
+
       if(dowr) write(outfile,*)
-      if(dowr) write(outfile,*) '  iusetke = ',iusetke
+      if(dowr) write(outfile,*) '  idoles    = ',idoles
+      if(dowr) write(outfile,*) '  idopbl    = ',idopbl
+      if(dowr) write(outfile,*) '  iusetke   = ',iusetke
+      if(dowr) write(outfile,*) '  iusekm    = ',iusekm
+      if(dowr) write(outfile,*) '  iusekh    = ',iusekh
       if(dowr) write(outfile,*)
 
 130   format(1x,a19,5(4x,i5))
@@ -6562,57 +6861,19 @@
       if(dowr) write(outfile,135) 'kedk,kedp,kemynn  =',kedk,kedp,kemynn
 
       if(dowr) write(outfile,*)
-      if(dowr) write(outfile,137) 'ibmyj =           =',ibmyj
-      if(dowr) write(outfile,137) 'iemyj =           =',iemyj
-      if(dowr) write(outfile,137) 'jbmyj =           =',jbmyj
-      if(dowr) write(outfile,137) 'jemyj =           =',jemyj
-      if(dowr) write(outfile,137) 'kbmyj =           =',kbmyj
-      if(dowr) write(outfile,137) 'kemyj =           =',kemyj
+      if(dowr) write(outfile,137) 'ibmyj,ibpbl =     =',ibmyj,ibpbl
+      if(dowr) write(outfile,137) 'iemyj,iepbl =     =',iemyj,iepbl
+      if(dowr) write(outfile,137) 'jbmyj,jbpbl =     =',jbmyj,jbpbl
+      if(dowr) write(outfile,137) 'jemyj,jepbl =     =',jemyj,jepbl
+      if(dowr) write(outfile,137) 'kbmyj,kbpbl =     =',kbmyj,kbpbl
+      if(dowr) write(outfile,137) 'kemyj,kepbl =     =',kemyj,kepbl
+      if(dowr) write(outfile,139) 'npbl  =           =',npbl
 
-137   format(1x,a19,1(4x,i5))
+137   format(1x,a19,2(4x,i5))
+139   format(1x,a19,1(4x,i5))
 
       if(dowr) write(outfile,*)
       if(dowr) write(outfile,*) '  use_pbl = ',use_pbl
-
-    !----------
-
-      dohturb = .false.
-      dovturb = .false.
-
-      if( cm1setup.eq.1 .or. cm1setup.eq.3 )then
-        ! LES or DNS
-        dohturb = .true.
-        dovturb = .true.
-      endif
-
-      if( cm1setup.eq.2 .and. ipbl.eq.2 )then
-        ! simple CM1 PBL scheme
-        dovturb = .true.
-      endif
-      if( cm1setup.eq.2 .and. horizturb.eq.1 )then
-        ! horizontal Smagorinsky
-        dohturb = .true.
-      endif
-
-      if(dowr) write(outfile,*)
-      if(dowr) write(outfile,*) '  dohturb,dovturb = ',dohturb,dovturb
-
-    !----------
-    !  use average surface conditions to determine ust,mol,etc:
-    !
-    !  For now, use this for a few well-established test cases. 
-    !  In future: make this a namelist variable
-
-    if( sfcmodel.eq.1 .or. sfcmodel.eq.5 )then
-      if( testcase.eq.1 .or. testcase.eq.2 .or. testcase.eq.9 .or. testcase.eq.11 .or. testcase.eq.14 )then
-        use_avg_sfc = .true.
-      else
-        use_avg_sfc = .false.
-      endif
-    endif
-
-      if(dowr) write(outfile,*)
-      if(dowr) write(outfile,*) '  use_avg_sfc = ',use_avg_sfc
 
     !----------
 
@@ -6692,6 +6953,7 @@
           if( ud_vediff.ge.1) write(outfile,*) '  ud_vediff = ',ud_vediff
           if( ud_pgrad.ge.1 ) write(outfile,*) '  ud_pgrad  = ',ud_pgrad
           if( ud_rdamp.ge.1 ) write(outfile,*) '  ud_rdamp  = ',ud_rdamp
+          if( ud_nudge.ge.1 ) write(outfile,*) '  ud_nudge  = ',ud_nudge
           if( ud_cor  .ge.1 ) write(outfile,*) '  ud_cor    = ',ud_cor
           if( ud_cent .ge.1 ) write(outfile,*) '  ud_cent   = ',ud_cent
           if( ud_pbl  .ge.1 ) write(outfile,*) '  ud_pbl    = ',ud_pbl
@@ -6712,6 +6974,7 @@
           if( vd_vediff.ge.1) write(outfile,*) '  vd_vediff = ',vd_vediff
           if( vd_pgrad.ge.1 ) write(outfile,*) '  vd_pgrad  = ',vd_pgrad
           if( vd_rdamp.ge.1 ) write(outfile,*) '  vd_rdamp  = ',vd_rdamp
+          if( vd_nudge.ge.1 ) write(outfile,*) '  vd_nudge  = ',vd_nudge
           if( vd_cor  .ge.1 ) write(outfile,*) '  vd_cor    = ',vd_cor
           if( vd_cent .ge.1 ) write(outfile,*) '  vd_cent   = ',vd_cent
           if( vd_pbl  .ge.1 ) write(outfile,*) '  vd_pbl    = ',vd_pbl
@@ -6768,7 +7031,6 @@
       if(dowr) write(outfile,*) 'smeps  =',smeps
       if(dowr) write(outfile,*) 'tsmall =',tsmall
       if(dowr) write(outfile,*) 'qsmall =',qsmall
-      if(dowr) write(outfile,*) 'cstar  =',cstar
       if(dowr) write(outfile,*) 'csmax  =',csmax
       if(dowr) write(outfile,*) 'epsilon=',epsilon
       if(dowr) write(outfile,*)
@@ -6843,15 +7105,18 @@
         if(dowr) write(outfile,*)
       endif
 
-        ! Test to see if nx is kosher.
+        ! Test to see if stretched-grid settings all make sense:
       IF(stretch_x.eq.1)THEN
-        if( nx.ne.(ni1+ni2+ni3) .or. ni1.lt.0 .or. ni2.lt.0 .or. ni3.lt.0 )then
+        test_len = dx_inner*ni2 + (ni1+ni3)*0.5*(dx_inner+dx_outer)
+        if( nx.ne.(ni1+ni2+ni3) .or. ni1.lt.0 .or. ni2.lt.0 .or. ni3.lt.0 .or.  &
+              abs(tot_x_len-test_len).gt.1.0e-6*tot_x_len )then
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  There is a problem with the settings for horizontal grid stretching'
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  User value of nx = ',nx
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '       ni1,ni2,ni3 = ',ni1,ni2,ni3
+          if(dowr) write(outfile,*) '       ni1+ni2+ni3 = ',ni1+ni2+ni3
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  Value needed for these settings ...'
           if(dowr) write(outfile,*) '       dx_inner  = ',dx_inner
@@ -6863,6 +7128,9 @@
           if(dowr) write(outfile,*) '  (if this number is an integer) '
           if(dowr) write(outfile,*) '  (and if ni1,ni2,ni3 are all integers) '
           if(dowr) write(outfile,*)
+          if(dowr) write(outfile,*) '  tot_x_len = ',tot_x_len
+          if(dowr) write(outfile,*) '  test_len  = ',test_len
+          if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  ... stopping ...  '
           if(dowr) write(outfile,*)
 #ifdef MPI
@@ -6871,13 +7139,16 @@
           call stopcm1
         endif
       ELSEIF(stretch_x.eq.2)THEN
-        if( nx.ne.(ni1+ni2+ni3) .or. ni1.lt.0 .or. ni2.lt.0 .or. ni3.lt.0 )then
+        test_len = dx_inner*ni2 + ni3*0.5*(dx_inner+dx_outer)
+        if( nx.ne.(ni1+ni2+ni3) .or. ni1.lt.0 .or. ni2.lt.0 .or. ni3.lt.0 .or.  &
+              abs(tot_x_len-test_len).gt.1.0e-6*tot_x_len )then
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  There is a problem with the settings for horizontal grid stretching'
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  User value of nx = ',nx
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '       ni1,ni2,ni3 = ',ni1,ni2,ni3
+          if(dowr) write(outfile,*) '       ni1+ni2+ni3 = ',ni1+ni2+ni3
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  Value for these settings ...'
           if(dowr) write(outfile,*) '       dx_inner  = ',dx_inner
@@ -6888,6 +7159,9 @@
           if(dowr) write(outfile,*) '  ... would be nx = ',(nos_x_len/dx_inner)+(tot_x_len-nos_x_len)/(0.5*(dx_inner+dx_outer))
           if(dowr) write(outfile,*) '  (if this number is an integer) '
           if(dowr) write(outfile,*) '  (and if ni1,ni2,ni3 are all integers) '
+          if(dowr) write(outfile,*)
+          if(dowr) write(outfile,*) '  tot_x_len = ',tot_x_len
+          if(dowr) write(outfile,*) '  test_len  = ',test_len
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  ... stopping ...  '
           if(dowr) write(outfile,*)
@@ -7094,7 +7368,7 @@
       centerx  =  minx + 0.5*(maxx-minx)
 
       do i = 1-ngxy , nx+ngxy
-        xhref(i) = 0.5*(xfref(i)+xfref(i+1))
+        xhref(i) = 0.5*(xfdp(i)+xfdp(i+1))
       enddo
 
       if(dowr) write(outfile,*)
@@ -7205,15 +7479,18 @@
         if(dowr) write(outfile,*)
       endif
 
-        ! Test to see if ny is kosher.
+        ! Test to see if stretched-grid settings all make sense:
       IF(stretch_y.eq.1)THEN
-        if( ny.ne.(nj1+nj2+nj3) .or. nj1.lt.0 .or. nj2.lt.0 .or. nj3.lt.0 )then
+        test_len = dy_inner*nj2 + (nj1+nj3)*0.5*(dy_inner+dy_outer)
+        if( ny.ne.(nj1+nj2+nj3) .or. nj1.lt.0 .or. nj2.lt.0 .or. nj3.lt.0 .or.  &
+              abs(tot_y_len-test_len).gt.1.0e-6*tot_y_len )then
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  There is a problem with the settings for horizontal grid stretching'
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  User value of ny = ',ny
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '       nj1,nj2,nj3 = ',nj1,nj2,nj3
+          if(dowr) write(outfile,*) '       nj1+nj2+nj3 = ',nj1+nj2+nj3
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  Value needed for these settings ...'
           if(dowr) write(outfile,*) '       dy_inner  = ',dy_inner
@@ -7224,6 +7501,9 @@
           if(dowr) write(outfile,*) '  ... would be ny = ',(nos_y_len/dy_inner)+(tot_y_len-nos_y_len)/(0.5*(dy_inner+dy_outer))
           if(dowr) write(outfile,*) '  (if this number is an integer) '
           if(dowr) write(outfile,*) '  (and if nj1,nj2,nj3 are all integers) '
+          if(dowr) write(outfile,*)
+          if(dowr) write(outfile,*) '  tot_y_len = ',tot_y_len
+          if(dowr) write(outfile,*) '  test_len  = ',test_len
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  ... stopping ...  '
           if(dowr) write(outfile,*)
@@ -7425,7 +7705,7 @@
       centery  =  miny + 0.5*(maxy-miny)
 
       do j = 1-ngxy , ny+ngxy
-        yhref(j) = 0.5*(yfref(j)+yfref(j+1))
+        yhref(j) = 0.5*(yfdp(j)+yfdp(j+1))
       enddo
 
       if(dowr) write(outfile,*)
@@ -7503,8 +7783,7 @@
         nk1 = nint( str_bot/dz_bot )
         nk3 = nint( (ztop-str_top)/dz_top )
         nk2 = nk-(nk1+nk3)
-        print*, 'str_bot=',str_bot, nominal_dz, dz_bot, dz_top
-        print*, 'nk1=',nk1, nk2, nk3
+
         ! dummy checks:
         if(dowr) write(outfile,*) '  bot: ',nk1*dz_bot,str_bot,nk1*dz_bot-str_bot
         if( abs(nk1*dz_bot-str_bot).gt.0.01 )then
@@ -7562,15 +7841,17 @@
         c2=(nominal_dz-dz_bot)/(nominal_dz*nominal_dz*float(nk2-1))
         c1=(dz_bot/nominal_dz)-c2*nominal_dz
 
-        ! Test to see if nk is kosher.
+        ! Test to see if stretched-grid settings all make sense:
         if(dowr) write(outfile,*)
         if(dowr) write(outfile,*) '  actual-nk,test-nk:',float(nk),float(nk1+nk3)+(str_top-str_bot)/(0.5*(dz_bot+dz_top))
-        if( abs(float(nk)-(float(nk1+nk3)+(str_top-str_bot)/(0.5*(dz_bot+dz_top)))).gt.1.0e-3  &
-              .or. nk1.lt.0 .or. nk2.lt.0 .or. nk3.lt.0 )then
+        test_len = dz_bot*nk1 + 0.5*(dz_bot+dz_top)*nk2 + dz_top*nk3
+        if( nz.ne.(nk1+nk2+nk3) .or. nk1.lt.0 .or. nk2.lt.0 .or. nk3.lt.0 .or.  &
+              abs(ztop-test_len).gt.1.0e-6*ztop )then
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  User value of nz = ',nz
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '       nk1,nk2,nk3 = ',nk1,nk2,nk3
+          if(dowr) write(outfile,*) '       nk1+nk2+nk3 = ',nk1+nk2+nk3
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  Value needed for these settings:'
           if(dowr) write(outfile,*) '       ztop      = ',ztop
@@ -7580,6 +7861,9 @@
           if(dowr) write(outfile,*) '       dz_top    = ',dz_top
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  would be nz = ',nk1+nk3+(str_top-str_bot)/(0.5*(dz_bot+dz_top))
+          if(dowr) write(outfile,*)
+          if(dowr) write(outfile,*) '  ztop     = ',ztop
+          if(dowr) write(outfile,*) '  test_len = ',test_len
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  ... stopping ...  '
           if(dowr) write(outfile,*)
@@ -8006,13 +8290,11 @@
       call ib_setup
 
 
-      ! override ib_setup for some test cases:
-      if( testcase.eq.12 )  do_ib = .true.   ! see files in run/config_files/les_ib_channel
-      if( testcase.eq.13 )  do_ib = .true.   ! see files in run/config_files/les_ib_UF-BLWT 
-
-
       if( myid.eq.0 ) print *
-      if( myid.eq.0 ) print *,'  do_ib = ',do_ib
+      if( myid.eq.0 ) print *,'  do_ib   = ',do_ib
+      if( myid.eq.0 ) print *,'  ib_init = ',ib_init
+      if( myid.eq.0 ) print *,'  top_cd  = ',top_cd
+      if( myid.eq.0 ) print *,'  side_cd = ',side_cd
 
 
       !-----
@@ -8072,13 +8354,13 @@
         weno_order = 5
       ENDIF
       !-----
-      if( do_ib .and. sgsmodel.gt.2 )then
+      if( do_ib .and. ( sgsmodel.eq.3 .or. sgsmodel.eq.4 ) )then
         if(myid.eq.0)then
         print *
         print *,'  sgsmodel     = ',sgsmodel
         print *,'  do_ib        = ',do_ib
         print *
-        print *,'  cannot use sgsmodel > 2 and do_ib at the same time (for now ... will be fixed later)'
+        print *,'  cannot use sgsmodel = 3,4 with do_ib '
         print *
         print *,'  stopping cm1 .... '
         print *
@@ -8249,6 +8531,30 @@
       if(dowr) write(outfile,*) '  max_dy = ',max_dy
       if(dowr) write(outfile,*) '  min_dz = ',min_dz
       if(dowr) write(outfile,*) '  max_dz = ',max_dz
+      if(dowr) write(outfile,*)
+
+!--------------------------------------------------------------
+!  max level for 3d output files:
+
+      ! default: entire domain
+      maxk = nk
+
+      doit = .false.
+      IF( doit )THEN
+
+        max_z_out = 8000.0   ! max depth of 3d writeout
+
+        do k=1,nk+1
+          if( sigma(k).le.max_z_out ) maxk = k
+        enddo
+
+      ENDIF
+
+      ! check:
+      maxk = min( maxk , nk )
+      maxk = max( maxk , 1 )
+
+      if(dowr) write(outfile,*) '  maxk,maxzh,maxzf = ',maxk,sigma(maxk),sigmaf(maxk+1)
       if(dowr) write(outfile,*)
 
 !--------------------------------------------------------------
@@ -8478,7 +8784,6 @@
         if(dowr) write(outfile,*)
 
 !--------------------------------------------------------------
-!  200412:  2-part turbulence model
 
         dot2p = .false.
 
@@ -8490,11 +8795,36 @@
         kb2pt = 1
         ke2pt = 1
 
-        if( cm1setup.ne.1 ) dot2p = .false.
+        dotimeavg = .false.
+        ntim = 1
+        rtim = 0.0
+        ntavr = 0
+        nsfctavr = 1
 
-        if( cm1setup.eq.1 .and. ( sgsmodel.eq.3 .or. sgsmodel.eq.4 ) ) dot2p = .true.
+        ibta = 1
+        ieta = 1
+        jbta = 1
+        jeta = 1
+        kbta = 1
+        keta = 1
 
-        IF( cm1setup.eq.1 .and. dot2p )THEN
+        utav = 0
+        vtav = 0
+        wtav = 0
+        ttav = 0
+        qtav = 0
+        etav = 0
+        uutav = 0
+        vvtav = 0
+
+!--------------------------------------------------------------
+!  200412:  2-part turbulence model
+
+        if( .not. idoles ) dot2p = .false.
+
+        if( idoles .and. ( sgsmodel.eq.3 .or. sgsmodel.eq.4 ) ) dot2p = .true.
+
+        IF( idoles .and. dot2p )THEN
 
           gam_cp     =    150.0        ! centerpoint of transition zone (m ASL)
 
@@ -8524,6 +8854,21 @@
           kb2pt = 1
           ke2pt = ntwk
 
+        !................
+
+          if( t2p_avg.le.0 .or. t2p_avg.ge.3 )then
+            print *,'  invalid value for t2p_avg: ',t2p_avg
+            call stopcm1
+          endif
+
+          dotimeavg = .false.
+
+          if( t2p_avg.eq.2 )then
+            dotimeavg = .true.
+          endif
+
+        !................
+
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  Including two-part sgs turbulence model '
           if(dowr) write(outfile,*)
@@ -8531,6 +8876,12 @@
           if(dowr) write(outfile,*) '      ib2pt,ie2pt = ',ib2pt,ie2pt
           if(dowr) write(outfile,*) '      jb2pt,je2pt = ',jb2pt,je2pt
           if(dowr) write(outfile,*) '      kb2pt,ke2pt = ',kb2pt,ke2pt
+          if(dowr) write(outfile,*)
+          if( t2p_avg.eq.1 )then
+            if(dowr) write(outfile,*) '    using horizontal average '
+          elseif( t2p_avg.eq.2 )then
+            if(dowr) write(outfile,*) '    using time average '
+          endif
           if(dowr) write(outfile,*)
 
           if(dowr) write(outfile,*) '      k,zf,gamwall,gamk: '
@@ -8559,16 +8910,6 @@
       f2d = fcor
 
 
-      ! 170803:  Hard-wire this (for now).
-      ! To use a beta plane, set betaplane = 1
-      betaplane  =  0
-
-
-      ! Cannot use beta plane for axisymmetric simulations, 
-      ! or 2d (x,z) simulations:
-      if( axisymm.eq.1 .or. ny.le.3 )  betaplane = 0
-
-
       if( betaplane.eq.1 )then
 
         ! get central latitude from Coriolis parameter:
@@ -8586,6 +8927,9 @@
         enddo
 
       endif
+
+      ! for lspgrad = 3
+      hurr_angle = dble(hurr_rotate) * ( pi_dp / 180.0d0 )
 
 !--------------------------------------------------------------
 
@@ -8731,6 +9075,7 @@
     ENDDO
 
 !--------------------------------------------------------------
+!  moved here so zh is available:
 
       IF( ptype.eq.3 )THEN
 
@@ -8740,7 +9085,7 @@
           if(dowr) write(outfile,*) 'Calling thompson_init'
           if(dowr) write(outfile,*) '(this can take several minutes ... please be patient)'
 
-          call   thompson_init(hgt=zh, dowr=dowr,                            &
+          call   thompson_init(hgt=zh, dowr=dowr, nt_c_in=nt_c,              &
                   ids=1  ,ide=ni+1 , jds= 1 ,jde=nj+1 , kds=1  ,kde=nk+1 ,   &
                   ims=ib ,ime=ie   , jms=jb ,jme=je   , kms=kb ,kme=ke ,     &
                   its=1  ,ite=ni   , jts=1  ,jte=nj   , kts=1  ,kte=nk )
@@ -8752,6 +9097,10 @@
           if(dowr) write(outfile,*) ' ----------------------------------------------- '
           if(dowr) write(outfile,*) '  ... using Thompson microphysics scheme ... '
           if(dowr) write(outfile,*) '         numq   = ',numq
+          if(dowr) write(outfile,*)
+          if(dowr) write(outfile,*) '         assuming constant cloud droplet concentration' 
+          if(dowr) write(outfile,*) '         Nt_c   = ',Nt_c
+          if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) ' ----------------------------------------------- '
           if(dowr) write(outfile,*)
 
@@ -8831,27 +9180,59 @@
     ENDIF
 
 !----------------------------------------------------------------------
+
+    IF( cm1setup.eq.4 )THEN
+
+      if(dowr) write(outfile,*)
+      if(dowr) write(outfile,*) 'les_subdomain_shape   = ',les_subdomain_shape
+      if(dowr) write(outfile,*) 'les_subdomain_xlen    = ',les_subdomain_xlen
+      if(dowr) write(outfile,*) 'les_subdomain_ylen    = ',les_subdomain_ylen
+      if(dowr) write(outfile,*) 'les_subdomain_dlen    = ',les_subdomain_dlen
+      if(dowr) write(outfile,*) 'les_subdomain_trnslen = ',les_subdomain_trnslen
+      if(dowr) write(outfile,*)
+
+    ENDIF
+
+!----------------------------------------------------------------------
 !  Eddy recycling code:
-
-
-      ! set to false, by default; then call eddy_recycle_setup; then check for testcase
-      do_recycle = .false.
 
 
       call eddy_recycle_setup
 
 
-      ! override for some test cases:
-      if( testcase.eq.12 .or. testcase.eq.13 ) do_recycle_w = .true. ! eddy recycling on W side
+      urecy = 1
+      vrecy = 2
+      wrecy = 3
+      xrecy = 4
+      nrecy = 4
+
+      tscale0 = 10.0*dtl
 
 
+      do_recycle = .false.
       if( do_recycle_w ) do_recycle = .true.
       if( do_recycle_e ) do_recycle = .true.
       if( do_recycle_s ) do_recycle = .true.
       if( do_recycle_n ) do_recycle = .true.
 
+      irecywe = 1
+      jrecywe = 1
+      irecysn = 1
+      jrecysn = 1
+      krecy = 1
+      nrecy = 1
 
+      urecy = 0
+      vrecy = 0
+      wrecy = 0
+      trecy = 0
+      qrecy = 0
+      erecy = 0
+      xrecy = 0
+
+      ! dummy checks:
       if( nx.le.3 .and. ny.le.3 )then
+        ! do recycling for single-column modeling
         do_recycle   = .false.
         do_recycle_w = .false.
         do_recycle_e = .false.
@@ -8859,10 +9240,12 @@
         do_recycle_n = .false.
       endif
       if( nx.le.3 )then
+        ! do recycling on w/e for very small domains in w-e direction
         do_recycle_w = .false.
         do_recycle_e = .false.
       endif
       if( ny.le.3 )then
+        ! do recycling on s/n for very small domains in s-n direction
         do_recycle_s = .false.
         do_recycle_n = .false.
       endif
@@ -8872,12 +9255,138 @@
       if(dowr) write(outfile,*) '  do_recycle   = ',do_recycle
       if(dowr) write(outfile,*)
       if(dowr) write(outfile,*) '  do_recycle_w = ',do_recycle_w
-      if(dowr) write(outfile,*) '  do_recycle_e = ',do_recycle_e
       if(dowr) write(outfile,*) '  do_recycle_s = ',do_recycle_s
+      if(dowr) write(outfile,*) '  do_recycle_e = ',do_recycle_e
       if(dowr) write(outfile,*) '  do_recycle_n = ',do_recycle_n
       if(dowr) write(outfile,*)
 
-      if( do_recycle )then
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      ifrecycle:  &
+      IF( do_recycle )THEN
+
+        ! dummy check:
+        if( cm1setup.eq.2 )then
+          if(myid.eq.0)then
+          print *
+          print *,'  cm1setup = ',cm1setup
+          print *
+          print *,'  cm1setup cannot be 2 when using eddy recycling '
+          print *
+          print *,'   stopping model .... '
+          print *
+          endif
+#ifdef MPI
+          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
+#endif
+          call stopcm1
+        endif
+
+
+        recy_width  =   min_dx * recycle_width_dx
+        recy_depth  =   recycle_depth_m
+
+
+        if( (recycle_inj_loc_m + recy_width) .ge. recycle_cap_loc_m )then
+          if(myid.eq.0)then
+          print *
+          print *,'  recycle_cap_loc_m needs to be larger '
+          print *
+          print *,'  recycle_inj_loc_m + recy_width = ',recycle_inj_loc_m + recy_width
+          print *,'  recycle_cap_loc_m              = ',recycle_cap_loc_m
+          print *
+          print *,'   stopping model .... '
+          print *
+          endif
+#ifdef MPI
+          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
+#endif
+          call stopcm1
+        endif
+
+
+        IF( cm1setup.eq.4 )THEN
+
+          ! LES within mesoscale model:
+          ! injection/capture regions are based on fine-mesh part of domain
+
+          recy_cap_w  =  centerx - 0.5*les_subdomain_xlen + recycle_cap_loc_m
+          recy_cap_e  =  centerx + 0.5*les_subdomain_xlen - recycle_cap_loc_m
+          recy_cap_s  =  centerx - 0.5*les_subdomain_ylen + recycle_cap_loc_m
+          recy_cap_n  =  centerx + 0.5*les_subdomain_ylen - recycle_cap_loc_m
+
+          recy_inj_w  =  centerx - 0.5*les_subdomain_xlen + recycle_inj_loc_m
+          recy_inj_e  =  centerx + 0.5*les_subdomain_xlen - recycle_inj_loc_m
+          recy_inj_s  =  centerx - 0.5*les_subdomain_ylen + recycle_inj_loc_m
+          recy_inj_n  =  centerx + 0.5*les_subdomain_ylen - recycle_inj_loc_m
+
+        ELSE
+
+          ! typical simulation:
+
+          if(myid.eq.0) print *
+          if(myid.eq.0) print *,'  minx,maxx = ',minx,maxx
+          if(myid.eq.0) print *,'  miny,maxy = ',miny,maxy
+          if(myid.eq.0) print *,'  maxz      = ',maxz
+          if(myid.eq.0) print *
+
+          recy_cap_w     =  minx + recycle_cap_loc_m
+          recy_cap_e     =  maxx - recycle_cap_loc_m
+          recy_cap_s     =  miny + recycle_cap_loc_m
+          recy_cap_n     =  maxy - recycle_cap_loc_m
+
+          recy_inj_w     =  minx + recycle_inj_loc_m
+          recy_inj_e     =  maxx - recycle_inj_loc_m
+          recy_inj_s     =  miny + recycle_inj_loc_m
+          recy_inj_n     =  maxy - recycle_inj_loc_m
+
+        ENDIF
+
+        if(dowr) write(outfile,*) '  recy_width    = ',recy_width
+        if(dowr) write(outfile,*) '  recy_depth    = ',recy_depth
+        if(dowr) write(outfile,*)
+        if(dowr.and.do_recycle_w) write(outfile,*) '  recy_cap_w    = ',recy_cap_w
+        if(dowr.and.do_recycle_s) write(outfile,*) '  recy_cap_s    = ',recy_cap_s
+        if(dowr.and.do_recycle_e) write(outfile,*) '  recy_cap_e    = ',recy_cap_e
+        if(dowr.and.do_recycle_n) write(outfile,*) '  recy_cap_n    = ',recy_cap_n
+        if(dowr) write(outfile,*)
+        if(dowr.and.do_recycle_w) write(outfile,*) '  recy_inj_w    = ',recy_inj_w
+        if(dowr.and.do_recycle_s) write(outfile,*) '  recy_inj_s    = ',recy_inj_s
+        if(dowr.and.do_recycle_e) write(outfile,*) '  recy_inj_e    = ',recy_inj_e
+        if(dowr.and.do_recycle_n) write(outfile,*) '  recy_inj_n    = ',recy_inj_n
+        if(dowr) write(outfile,*)
+        if(dowr) write(outfile,*) '  tscale0       = ',tscale0
+        if(dowr) write(outfile,*)
+
+        ! 3 components of velocity + theta:
+        urecy = 1
+        vrecy = 2
+        wrecy = 3
+        trecy = 4
+        nrecy = 4
+
+        if( imoist.eq.1 )then
+          nrecy = nrecy+1
+          qrecy = nrecy
+        endif
+        if( iusetke )then
+          nrecy = nrecy+1
+          erecy = nrecy
+        endif
+
+        nrecy = nrecy+1
+        xrecy = nrecy
+
+        if(dowr) write(outfile,*) '  nrecy = ',nrecy
+        if(dowr) write(outfile,*)
+        if(dowr) write(outfile,*) '      urecy = ',urecy
+        if(dowr) write(outfile,*) '      vrecy = ',vrecy
+        if(dowr) write(outfile,*) '      wrecy = ',wrecy
+        if(dowr) write(outfile,*) '      trecy = ',trecy
+        if(dowr) write(outfile,*) '      qrecy = ',qrecy
+        if(dowr) write(outfile,*) '      erecy = ',erecy
+        if(dowr) write(outfile,*) '      xrecy = ',xrecy
+        if(dowr) write(outfile,*)
 
         !-----------------------------------------------------
 
@@ -8887,216 +9396,127 @@
           if( zh(1,1,k).le.recy_depth ) krecy = k
         enddo
 
-        !-----------------------------------------------------
-        ! west side of domain:
+        ! currently uses time-average for reference state
+        dotimeavg = .true.
+        call setup_timeavg(nlevels=krecy)
 
-        ! starting x location (m) for recycle strip (ie, location where perts come from)
-        xloc_recy_w = minx + recy_source_w
-
-        do i=1,nx
-          if( (xhref(i)-minx).le. recy_width ) irecywe = i
-        enddo
-
-        ! this code assumes a S-N slice over whole domain:
-        ! add 1 to account for staggered vars
-        irecywe = irecywe + 1
-        jrecywe = nj      + 1
-
-        ! begin/end points of "capture zone" on total domain:
-        irc1 = 0
-        irc2 = 0
-        do i=1,nx
-          if( xhref(i).ge.xloc_recy_w .and. xhref(i).le.(xloc_recy_w+recy_width) )then
-            if( irc1.eq.0 ) irc1 = i
-            irc2 = i
+          if( utav.le.0 )then
+            ntavr = ntavr+1
+            utav = ntavr
           endif
-        enddo
-
-        ! begin/end points of "capture zone" on my subdomain (if any):
-        ircs1 = 0
-        ircs2 = 0
-        irb = 0
-        do i=1,ni
-          if( xh(i).ge.xloc_recy_w .and. xh(i).le.(xloc_recy_w+recy_width) )then
-            if( ircs1.eq.0 )then
-              ircs1 = i
- !                    i for total grid    minus beginning pt    + 1
-              irb =      (myi1-1+i)       - irc1                + 1
-            endif
-            ircs2 = i
+          if( vtav.le.0 )then
+            ntavr = ntavr+1
+            vtav = ntavr
           endif
-        enddo
-
-        ! begin/end points of "injection zone" on my subdomain (if any):
-
-        iris1 = 0
-        iris2 = 0
-
-        do i=1,ni
-          ii = (myi1-1) + i
-          if( ii.le.(irecywe-1) .and. iris1.eq.0 ) iris1 = i
-          if( ii.le.(irecywe-1) ) iris2 = i
-        enddo
+          if( wtav.le.0 )then
+            ntavr = ntavr+1
+            wtav = ntavr
+          endif
+          if( ttav.le.0 )then
+            ntavr = ntavr+1
+            ttav = ntavr
+          endif
+          if( imoist.eq.1 .and. qtav.le.0 )then
+            ntavr = ntavr+1
+            qtav = ntavr
+          endif
+          if( idoles .and. iusetke .and. etav.le.0 )then
+            ntavr = ntavr+1
+            etav = ntavr
+          endif
 
         !-----------------------------------------------------
-        ! south side of domain:
+        ! get indices for eddy recycling arrays:
 
-        ! starting y location (m) for recycle strip (ie, location where perts come from)
-        yloc_recy_s = miny + recy_source_s
-
-        do j=1,ny
-          if( (yhref(j)-miny).le. recy_width ) jrecysn = j
-        enddo
-
-        ! this code assumes a W-E slice over whole domain:
-        ! add 1 to account for staggered vars
-        irecysn = ni      + 1
-        jrecysn = jrecysn + 1
-
-        ! begin/end points of "capture zone" on total domain:
-        jrc1 = 0
-        jrc2 = 0
-        do j=1,ny
-          if( yhref(j).ge.yloc_recy_s .and. yhref(j).le.(yloc_recy_s+recy_width) )then
-            if( jrc1.eq.0 ) jrc1 = j
-            jrc2 = j
-          endif
-        enddo
-
-        ! begin/end points of "capture zone" on my subdomain (if any):
-        jrcs1 = 0
-        jrcs2 = 0
-        jrb = 0
-        do j=1,nj
-          if( yh(j).ge.yloc_recy_s .and. yh(j).le.(yloc_recy_s+recy_width) )then
-            if( jrcs1.eq.0 )then
-              jrcs1 = j
- !                    j for total grid    minus beginning pt    + 1
-              jrb =      (myj1-1+j)       - jrc1                + 1
-            endif
-            jrcs2 = j
-          endif
-        enddo
-
-        ! begin/end points of "injection zone" on my subdomain (if any):
-
-        jris1 = 0
-        jris2 = 0
-
-        do j=1,nj
-          jj = (myj1-1) + j
-          if( jj.le.(jrecysn-1) .and. jris1.eq.0 ) jris1 = j
-          if( jj.le.(jrecysn-1) ) jris2 = j
-        enddo
+          call eddy_recycling_indices(xh,xf,yh,yf,xhref,xfref,yhref,yfref)
 
         !-----------------------------------------------------
 
-            foor1  = recy_width
-            foor2  = recy_depth
-            fooi1  = irecywe
-            fooi2  = jrecywe
-            fooi3  = irecysn
-            fooi4  = jrecysn
-            fooi5  = krecy
-            fooi6  = irc1
-            fooi7  = irc2
-            fooi8  = ircs1
-            fooi9  = ircs2
-            fooi10 = iris1
-            fooi11 = iris2
-            fooi12 = jrc1
-            fooi13 = jrc2
-            fooi14 = jrcs1
-            fooi15 = jrcs2
-            fooi16 = jris1
-            fooi17 = jris2
-            fooi18 = ni
-            fooi19 = nj
 
-        IF( myid.eq.0 )THEN
+      ENDIF  ifrecycle
 
-        do n = 0 , (numprocs-1)
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-#ifdef MPI
-          if( n.ne.0 )then
-            call mpi_recv(foor1 ,1,MPI_REAL   ,n,8001,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(foor2 ,1,MPI_REAL   ,n,8002,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi1 ,1,MPI_INTEGER,n,8003,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi2 ,1,MPI_INTEGER,n,8004,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi3 ,1,MPI_INTEGER,n,8005,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi4 ,1,MPI_INTEGER,n,8006,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi5 ,1,MPI_INTEGER,n,8007,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi6 ,1,MPI_INTEGER,n,8008,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi7 ,1,MPI_INTEGER,n,8009,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi8 ,1,MPI_INTEGER,n,8010,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi9 ,1,MPI_INTEGER,n,8011,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi10,1,MPI_INTEGER,n,8012,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi11,1,MPI_INTEGER,n,8013,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi12,1,MPI_INTEGER,n,8014,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi13,1,MPI_INTEGER,n,8015,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi14,1,MPI_INTEGER,n,8016,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi15,1,MPI_INTEGER,n,8017,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi16,1,MPI_INTEGER,n,8018,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi17,1,MPI_INTEGER,n,8019,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi18,1,MPI_INTEGER,n,8019,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(fooi19,1,MPI_INTEGER,n,8019,MPI_COMM_WORLD,status,ierr)
-          endif
-#endif
+!--------------------------------------------------------------
 
-          print *,' --------------------------- '
-          print *,'  proc,ni,nj = ',n,fooi18,fooi19
-          print *
-          print *,'  recy_width,recy_depth = ',foor1,foor2
-          print *,'  irecywe,jrecywe,      = ',fooi1,fooi2
-          print *,'  irecysn,jrecysn       = ',fooi3,fooi4
-          print *,'  krecy                 = ',fooi5
-          print *
-          print *,'  irc1,irc2 =           = ',fooi6,fooi7
-          print *,'  ircs1,ircs2 =         = ',fooi8,fooi9
-          print *,'  iris1,iris2 =         = ',fooi10,fooi11
-          print *
-          print *,'  jrc1,jrc2 =           = ',fooi12,fooi13
-          print *,'  jrcs1,jrcs2 =         = ',fooi14,fooi15
-          print *,'  jris1,jris2 =         = ',fooi16,fooi17
-          print *
-        enddo
+      ! for time averaging:
+      IF( dotimeavg )THEN
 
-#ifdef MPI
-        ELSE
-            call mpi_send(foor1 ,1,MPI_REAL   ,0,8001,MPI_COMM_WORLD,ierr)
-            call mpi_send(foor2 ,1,MPI_REAL   ,0,8002,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi1 ,1,MPI_INTEGER,0,8003,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi2 ,1,MPI_INTEGER,0,8004,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi3 ,1,MPI_INTEGER,0,8005,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi4 ,1,MPI_INTEGER,0,8006,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi5 ,1,MPI_INTEGER,0,8007,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi6 ,1,MPI_INTEGER,0,8008,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi7 ,1,MPI_INTEGER,0,8009,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi8 ,1,MPI_INTEGER,0,8010,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi9 ,1,MPI_INTEGER,0,8011,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi10,1,MPI_INTEGER,0,8012,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi11,1,MPI_INTEGER,0,8013,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi12,1,MPI_INTEGER,0,8014,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi13,1,MPI_INTEGER,0,8015,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi14,1,MPI_INTEGER,0,8016,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi15,1,MPI_INTEGER,0,8017,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi16,1,MPI_INTEGER,0,8018,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi17,1,MPI_INTEGER,0,8019,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi18,1,MPI_INTEGER,0,8019,MPI_COMM_WORLD,ierr)
-            call mpi_send(fooi19,1,MPI_INTEGER,0,8019,MPI_COMM_WORLD,ierr)
-#endif
-        ENDIF
+        call setup_timeavg(nlevels=ntwk)
 
+        nsfctavr = 3
 
-      else
+        if( utav.le.0 )then
+          ntavr = ntavr+1
+          utav = ntavr
+        endif
 
-        irecywe = 1
-        jrecywe = 1
-        irecysn = 1
-        jrecysn = 1
-        krecy = 1
+        if( vtav.le.0 )then
+          ntavr = ntavr+1
+          vtav = ntavr
+        endif
 
-      endif
+        if( dot2p .and. uutav.le.0 )then
+          ntavr = ntavr+1
+          uutav = ntavr
+        endif
+
+        if( dot2p .and. vvtav.le.0 )then
+          ntavr = ntavr+1
+          vvtav = ntavr
+        endif
+
+      ENDIF
+
+      ntavr = max( ntavr , 1 )
+      nsfctavr = max( nsfctavr , 1 )
+
+!--------------------------------------------------------------
+
+      IF( dotimeavg )THEN
+        if(dowr) write(outfile,*)
+        if(dowr) write(outfile,*) '  ... using time averages ... '
+        if(dowr) write(outfile,*)
+        if(dowr) write(outfile,*) '      ibta,ieta      = ',ibta,ieta
+        if(dowr) write(outfile,*) '      jbta,jeta      = ',jbta,jeta
+        if(dowr) write(outfile,*) '      kbta,keta      = ',kbta,keta
+        if(dowr) write(outfile,*) '      ntavr,nsfctavr = ',ntavr,nsfctavr
+        if(dowr) write(outfile,*) '      ntim,rtim      = ',ntim,rtim,ntim*rtim
+        if(dowr) write(outfile,*) '      utav           = ',utav
+        if(dowr) write(outfile,*) '      vtav           = ',vtav
+        if(dowr) write(outfile,*) '      wtav           = ',wtav
+        if(dowr) write(outfile,*) '      ttav           = ',ttav
+        if(dowr) write(outfile,*) '      qtav           = ',qtav
+        if(dowr) write(outfile,*) '      etav           = ',etav
+        if(dowr) write(outfile,*) '      uutav          = ',uutav
+        if(dowr) write(outfile,*) '      vvtav          = ',vvtav
+        if(dowr) write(outfile,*)
+      ELSE
+        if(dowr) write(outfile,*)
+        if(dowr) write(outfile,*) '      ibta,ieta      = ',ibta,ieta
+        if(dowr) write(outfile,*) '      jbta,jeta      = ',jbta,jeta
+        if(dowr) write(outfile,*) '      kbta,keta      = ',kbta,keta
+        if(dowr) write(outfile,*) '      ntavr,nsfctavr = ',ntavr,nsfctavr
+        if(dowr) write(outfile,*)
+      ENDIF
+
+!--------------------------------------------------------------
+
+      if(dowr) write(outfile,*)
+      if(dowr) write(outfile,*) '  do_lsnudge         = ',do_lsnudge
+      if(dowr) write(outfile,*)
+      IF( do_lsnudge )THEN
+        if(dowr) write(outfile,*) '  do_lsnudge_u       = ',do_lsnudge_u
+        if(dowr) write(outfile,*) '  do_lsnudge_v       = ',do_lsnudge_v
+        if(dowr) write(outfile,*) '  do_lsnudge_th      = ',do_lsnudge_th
+        if(dowr) write(outfile,*) '  do_lsnudge_qv      = ',do_lsnudge_qv
+        if(dowr) write(outfile,*)
+        if(dowr) write(outfile,*) '  lsnudge_tau        = ',lsnudge_tau
+        if(dowr) write(outfile,*) '  lsnudge_start      = ',lsnudge_start
+        if(dowr) write(outfile,*) '  lsnudge_end        = ',lsnudge_end
+        if(dowr) write(outfile,*) '  lsnudge_ramp_time  = ',lsnudge_ramp_time
+        if(dowr) write(outfile,*)
+      ENDIF
 
 !--------------------------------------------------------------
 
@@ -9499,5 +9919,39 @@
 
  RETURN
  END FUNCTION ZHEIGHT
+
+!-------------------------------------------------------------------------------
+
+      subroutine setup_timeavg(nlevels)
+      use input
+      implicit none
+
+      integer, intent(in) :: nlevels
+
+
+      !  To reduce memory usage, the time-averaging code is designed as a series 
+      !  of smaller time averages.
+      !
+      !  Total length of time averge is ntim * rtim.  
+      !  (so, ntim = 5 with rtime = 60.0s  yields 300-s average
+
+
+      ! number of time-avgeraging levels:
+      ntim  =   5
+
+      ! length of time averaging in each level (seconds):
+      rtim  =  60.0
+
+
+      ibta = ib
+      ieta = ie
+      jbta = jb
+      jeta = je
+      kbta = 1
+      keta = max( keta , nlevels )
+
+      end subroutine setup_timeavg
+
+!-------------------------------------------------------------------------------
 
   END MODULE param_module

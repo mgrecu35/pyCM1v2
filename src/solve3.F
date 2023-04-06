@@ -5,11 +5,11 @@
 
 !-----------------------------------------------------------------------------
 !
-!  CM1 Numerical Model, Release 20.3  (cm1r20.3)
-!  25 June 2021
+!  CM1 Numerical Model, Release 21.0  (cm1r21.0)
+!  20 April 2022
 !  https://www2.mmm.ucar.edu/people/bryan/cm1/
 !
-!  (c)2021 - University Corporation for Atmospheric Research 
+!  (c)2022 - University Corporation for Atmospheric Research 
 !
 !-----------------------------------------------------------------------------
 !  Quick Index:
@@ -74,46 +74,25 @@
 
   CONTAINS
 
-      subroutine solve3(nstep,rbufsz,num_soil_layers,                  &
-                   dt,dtlast,mtime,dbldt,mass1,mass2,                 &
-                   dosfcflx,cloudvar,rhovar,bud,bud2,qbudget,asq,bsq, &
-                   xh,rxh,arh1,arh2,uh,ruh,xf,rxf,arf1,arf2,uf,ruf,   &
-                   yh,vh,rvh,yf,vf,rvf,                               &
-                   xfref,yfref,dumk1,dumk2,rds,sigma,rdsf,sigmaf,    &
-                   tauh,taus,zh,mh,rmh,c1,c2,tauf,zf,mf,rmf,         &
-                   rho0s,pi0s,prs0s,rth0s,                           &
-                   wprof,ufrc,vfrc,thfrc,qvfrc,ug,vg,dvdr,           &
-                   uavg,vavg,thavg,pavg,ulspg,vlspg,qavg,cavg,       &
+      subroutine solve3(nstep,num_soil_layers,                       &
+                   dt,dtlast,mtime,dbldt,                            &
+                   xh,rxh,arh1,arh2,uh,ruh,xf,rxf,arf1,arf2,uf,ruf,  &
+                   yh,vh,rvh,yf,vf,rvf,                              &
+                   rds,sigma,rdsf,sigmaf,                            &
+                   zh,mh,rmh,c1,c2,zf,mf,rmf,wprof,ug,vg,            &
                    pi0,rho0,prs0,thv0,th0,rth0,qv0,qc0,              &
-                   qi0,rr0,rf0,rrf0,thrd,                            &
-                   zs,gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy,gx,gxu,gy,gyv, &
+                   qi0,rr0,rf0,rrf0,                                 &
+                   zs,gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy,            &
                    rain,sws,svs,sps,srs,sgs,sus,shs,                 &
-                   tsk,thflux,qvflux,cd,ch,cq,u1,v1,s1,tlh,f2d,prate, &
-                   radbcw,radbce,radbcs,radbcn,dtu,dtu0,dtv,dtv0,    &
                    dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,          &
                    divx,rho,rr,rf,prs,                               &
-                   t11,t12,t13,t22,t23,t33,                          &
-                   m11,m12,m13,m22,m23,m33,                          &
                    u0,rru,ua,u3d,uten,uten1,                         &
                    v0,rrv,va,v3d,vten,vten1,                         &
                    rrw,wa,w3d,wten,wten1,                            &
-                   ppi,pp3d,ppten,sten,sadv,ppx,phi1,phi2,           &
-                   tha,th3d,thten,thten1,thterm,                     &
-                   qpten,qtten,qvten,qcten,qa,q3d,qten,              &
-                   kmh,kmv,khh,khv,tkea,tke3d,tketen,                &
-                   nm,defv,defh,lenscl,dissten,epst,epsd1,epsd2,     &
-                   thpten,qvpten,qcpten,qipten,upten,vpten,qnipten,qncpten,o30,zir,  &
-                   swten,lwten,effc,effi,effs,effr,effg,effis,       &
-                   lu_index,kpbl2d,psfc,u10,v10,s10,hfx,qfx,xland,znt,ust,  &
-                   hpbl,wspd,psim,psih,gz1oz0,br,                    &
-                   CHS,CHS2,CQS2,CPMM,ZOL,MAVAIL,                    &
-                   MOL,RMOL,REGIME,LH,FLHC,FLQC,QGH,                 &
-                   CK,CKA,CDA,USTM,QSFC,T2,Q2,TH2,EMISS,THC,ALBD,    &
-                   gsw,glw,chklowq,capg,snowc,dsxy,wstar,delta,fm,fh,zntmp,  &
-                   slab_zs,slab_dzs,tslb,tmn,tml,t0ml,hml,h0ml,huml,hvml,tmoml,       &
-                   pta,pt3d,ptten,pdata,                             &
-                   cfb,cfa,cfc,ad1,ad2,pdt,lgbth,lgbph,rhs,trans,flag,  &
-                   gamk,gamwall,kmw,u1b,v1b,u2pt,v2pt,               &
+                   ppi,pp3d,ppx,phi1,                                &
+                   tha,th3d,qpten,qtten,qvten,qcten,qa,q3d,tkea,tke3d, &
+                   pta,pt3d,pdata,u2pt,v2pt,                         &
+                   tsk,znt,zntmp,ust,f2d,hfx,qfx,qsfc,tslb,tmn,      &
                    reqs_u,reqs_v,reqs_w,reqs_s,reqs_p,reqs_p2,reqs_p3, &
                    reqs_x,reqs_y,reqs_z,reqs_tk,reqs_q,reqs_t,       &
                    nw1,nw2,ne1,ne2,sw1,sw2,se1,se2,                  &
@@ -133,11 +112,8 @@
                    tkw1,tkw2,tke1,tke2,tks1,tks2,tkn1,tkn2,          &
                    kw1,kw2,ke1,ke2,ks1,ks2,kn1,kn2,                  &
                    tw1,tw2,te1,te2,ts1,ts2,tn1,tn2,                  &
-                   dat1,dat2,dat3,reqt,reqc,                         &
-                   tdiag,qdiag,udiag,vdiag,wdiag,kdiag,pdiag,        &
-                   out2d,out3d,                                      &
+                   udiag,vdiag,wdiag,pdiag,                          &
                    lsnudge_u,lsnudge_v,lsnudge_th,lsnudge_qv,        &
-                   bndy,kbdy,hflxw,hflxe,hflxs,hflxn,                &
                    dowriteout,dorad,getdbz,getvt,dotdwrite,          &
                    dotbud,doqbud,doubud,dovbud,dowbud,donudge,       &
                    doazimwrite,dorestart)
@@ -149,9 +125,7 @@
       use adv_routines, only : movesfc
       use misclibs
       use parcel_module, only : parcel_driver
-      use pdcomp_module, only : pidcomp
       use lsnudge_module
-      use ib_module
 #ifdef MPI
       use mpi
 #endif
@@ -161,89 +135,44 @@
 ! Arrays and variables passed into solve
 
       integer, intent(in) :: nstep
-      integer, intent(in) :: rbufsz,num_soil_layers
+      integer, intent(in) :: num_soil_layers
       real, intent(inout) :: dt,dtlast
       double precision, intent(in   ) :: mtime
       double precision, intent(inout) :: dbldt
-      double precision, intent(in   ) :: mass1
-      double precision, intent(inout) :: mass2
-      logical, intent(in) :: dosfcflx
-      logical, intent(in), dimension(maxq) :: cloudvar,rhovar
-      double precision, intent(inout), dimension(nk) :: bud
-      double precision, intent(inout), dimension(nj) :: bud2
-      double precision, intent(inout), dimension(nbudget) :: qbudget
-      double precision, intent(inout), dimension(numq) :: asq,bsq
       real, intent(in), dimension(ib:ie) :: xh,rxh,arh1,arh2,uh,ruh
       real, intent(in), dimension(ib:ie+1) :: xf,rxf,arf1,arf2,uf,ruf
       real, intent(in), dimension(jb:je) :: yh,vh,rvh
       real, intent(in), dimension(jb:je+1) :: yf,vf,rvf
-      real, intent(in), dimension(1-ngxy:nx+ngxy+1) :: xfref
-      real, intent(in), dimension(1-ngxy:ny+ngxy+1) :: yfref
-      double precision, intent(inout), dimension(kb:ke) :: dumk1,dumk2
       real, intent(in), dimension(kb:ke) :: rds,sigma
       real, intent(in), dimension(kb:ke+1) :: rdsf,sigmaf
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: tauh,taus,zh,mh,rmh,c1,c2
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: tauf,zf,mf,rmf
-      real, intent(in), dimension(ib:ie,jb:je) :: rho0s,pi0s,prs0s,rth0s
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: zh,mh,rmh,c1,c2
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: zf,mf,rmf
       real, intent(in),    dimension(kb:ke) :: wprof
-      real, intent(inout), dimension(kb:ke) :: ufrc,vfrc,thfrc,qvfrc,ug,vg,dvdr,  &
-                                               uavg,vavg,thavg,pavg,ulspg,vlspg
-      real, intent(inout), dimension(kb:ke,numq) :: qavg
-      double precision, intent(inout), dimension(kb:ke,3+numq) :: cavg
+      real, intent(inout), dimension(kb:ke) :: ug,vg
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: pi0,rho0,prs0,thv0,th0,rth0,qv0,qc0
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: qi0,rr0,rf0,rrf0
-      real, intent(in), dimension(ibb2:ibe2,jbb2:jbe2,kbb2:kbe2) :: thrd
       real, intent(in), dimension(ib:ie,jb:je) :: zs
       real, intent(in), dimension(itb:ite,jtb:jte) :: gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy
-      real, intent(in), dimension(itb:ite,jtb:jte,ktb:kte) :: gx,gxu,gy,gyv
       real, intent(inout), dimension(ib:ie,jb:je,nrain) :: rain,sws,svs,sps,srs,sgs,sus,shs
-      real, intent(inout), dimension(ib:ie,jb:je) :: tsk,znt,zntmp,ust,thflux,qvflux,cd,ch,cq,u1,v1,s1,psfc,tlh
-      real, intent(in),    dimension(ib:ie,jb:je) :: xland,f2d
-      real, intent(inout), dimension(ib:ie,jb:je) :: prate
-      real, intent(inout), dimension(jb:je,kb:ke) :: radbcw,radbce
-      real, intent(inout), dimension(ib:ie,kb:ke) :: radbcs,radbcn
-      real, intent(inout), dimension(ib:ie,jb:je) :: dtu,dtv
-      real, intent(in),    dimension(ib:ie,jb:je) :: dtu0,dtv0
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: divx,rho,rr,rf,prs
-      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: t11,t12,t13,t22,t23,t33
-      real, intent(in), dimension(ibnba:ienba,jbnba:jenba,kbnba:kenba) :: m11,m12,m13,m22,m23,m33
       real, intent(inout), dimension(ib:ie+1,jb:je,kb:ke) :: u0,rru,ua,u3d,uten,uten1
       real, intent(inout), dimension(ib:ie,jb:je+1,kb:ke) :: v0,rrv,va,v3d,vten,vten1
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke+1) :: rrw,wa,w3d,wten,wten1
-      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: ppi,pp3d,ppten,sten,sadv,ppx
-      real, intent(inout), dimension(ibph:ieph,jbph:jeph,kbph:keph) :: phi1,phi2
-      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: tha,th3d,thten,thten1,thterm
+      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: ppi,pp3d,ppx
+      real, intent(inout), dimension(ibph:ieph,jbph:jeph,kbph:keph) :: phi1
+      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: tha,th3d
       real, intent(inout), dimension(ibm:iem,jbm:jem,kbm:kem) :: qpten,qtten,qvten,qcten
-      real, intent(inout), dimension(ibm:iem,jbm:jem,kbm:kem,numq) :: qa,q3d,qten
-      real, intent(inout), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmh,kmv,khh,khv
-      real, intent(inout), dimension(ibt:iet,jbt:jet,kbt:ket) :: tkea,tke3d,tketen
-      real, intent(inout), dimension(ib:ie,jb:je,kb:ke+1) :: nm,defv,defh,lenscl,dissten,epst,epsd1,epsd2
-      real, intent(inout), dimension(ibb:ieb,jbb:jeb,kbb:keb) :: thpten,qvpten,qcpten,qipten,upten,vpten,qnipten,qncpten
-      real, intent(inout), dimension(ibr:ier,jbr:jer,kbr:ker) :: o30
-      real, intent(inout), dimension(ibr:ier,jbr:jer) :: zir
-      real, intent(inout), dimension(ibr:ier,jbr:jer,kbr:ker) :: swten,lwten
-      real, intent(inout), dimension(ibr:ier,jbr:jer,kbr:ker) :: effc,effi,effs,effr,effg,effis
-      integer, intent(inout), dimension(ibl:iel,jbl:jel) :: lu_index
-      integer, intent(inout), dimension(ibl:iel,jbl:jel) :: kpbl2d
-      real, intent(inout), dimension(ibl:iel,jbl:jel) :: u10,v10,s10,hfx,qfx, &
-                                      hpbl,wspd,psim,psih,gz1oz0,br,          &
-                                      CHS,CHS2,CQS2,CPMM,ZOL,MAVAIL,          &
-                                      MOL,RMOL,REGIME,LH,FLHC,FLQC,QGH,       &
-                                      CK,CKA,CDA,USTM,QSFC,T2,Q2,TH2,EMISS,THC,ALBD,   &
-                                      gsw,glw,chklowq,capg,snowc,dsxy,wstar,delta,fm,fh
-      real, intent(in), dimension(num_soil_layers) :: slab_zs,slab_dzs
-      real, intent(inout), dimension(ibl:iel,jbl:jel,num_soil_layers) :: tslb
-      real, intent(inout), dimension(ibl:iel,jbl:jel) :: tmn,tml,t0ml,hml,h0ml,huml,hvml,tmoml
-      real, intent(inout), dimension(ibp:iep,jbp:jep,kbp:kep,npt) :: pta,pt3d,ptten
+      real, intent(inout), dimension(ibm:iem,jbm:jem,kbm:kem,numq) :: qa,q3d
+      real, intent(inout), dimension(ibt:iet,jbt:jet,kbt:ket) :: tkea,tke3d
+      real, intent(inout), dimension(ibp:iep,jbp:jep,kbp:kep,npt) :: pta,pt3d
       real, intent(inout), dimension(nparcels,npvals) :: pdata
-      real, intent(in), dimension(ipb:ipe,jpb:jpe,kpb:kpe) :: cfb
-      real, intent(in), dimension(kpb:kpe) :: cfa,cfc,ad1,ad2
-      complex, intent(inout), dimension(ipb:ipe,jpb:jpe,kpb:kpe) :: pdt,lgbth,lgbph
-      complex, intent(inout), dimension(ipb:ipe,jpb:jpe) :: rhs,trans
-      logical, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: flag
-      real, intent(in), dimension(kb:ke) :: gamk,gamwall,kmw,u1b,v1b
       real, intent(inout), dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: u2pt,v2pt
+      real, intent(inout), dimension(ib:ie,jb:je) :: tsk,znt,zntmp,ust
+      real, intent(in),    dimension(ib:ie,jb:je) :: f2d
+      real, intent(inout), dimension(ibl:iel,jbl:jel) :: hfx,qfx,qsfc
+      real, intent(inout), dimension(ibl:iel,jbl:jel,num_soil_layers) :: tslb
+      real, intent(inout), dimension(ibl:iel,jbl:jel) :: tmn
       integer, intent(inout), dimension(rmp) :: reqs_u,reqs_v,reqs_w,reqs_s,reqs_p,reqs_p2,reqs_p3,reqs_x,reqs_y,reqs_z,reqs_tk
       integer, intent(inout), dimension(rmp,numq) :: reqs_q
       integer, intent(inout), dimension(rmp,npt) :: reqs_t
@@ -279,24 +208,11 @@
       real, intent(inout), dimension(imp,kmt,4)     :: ks1,ks2,kn1,kn2
       real, intent(inout), dimension(cmp,jmp,kmp,npt) :: tw1,tw2,te1,te2
       real, intent(inout), dimension(imp,cmp,kmp,npt) :: ts1,ts2,tn1,tn2
-      real, intent(inout), dimension(d3i,d3j) :: dat1
-      real, intent(inout), dimension(d2i,d2j) :: dat2
-      real, intent(inout), dimension(d3i,d3j,d3n) :: dat3
-      integer, intent(inout), dimension(d3t) :: reqt
-      integer, intent(inout) :: reqc
-      real, intent(inout) , dimension(ibdt:iedt,jbdt:jedt,kbdt:kedt,ntdiag) :: tdiag
-      real, intent(inout) , dimension(ibdq:iedq,jbdq:jedq,kbdq:kedq,nqdiag) :: qdiag
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nudiag) :: udiag
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nvdiag) :: vdiag
       real, intent(inout) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nwdiag) :: wdiag
-      real, intent(inout) , dimension(ibdk:iedk,jbdk:jedk,kbdk:kedk,nkdiag) :: kdiag
       real, intent(inout) , dimension(ibdp:iedp,jbdp:jedp,kbdp:kedp,npdiag) :: pdiag
-      real, intent(inout) , dimension(ib2d:ie2d,jb2d:je2d,nout2d) :: out2d
-      real, intent(inout) , dimension(ib3d:ie3d,jb3d:je3d,kb3d:ke3d,nout3d) :: out3d
       real, intent(inout), dimension(lsnudge_maxlevels,lsnudge_nmax) :: lsnudge_u,lsnudge_v,lsnudge_th,lsnudge_qv
-      logical, intent(in), dimension(ibib:ieib,jbib:jeib,kbib:keib) :: bndy
-      integer, intent(in), dimension(ibib:ieib,jbib:jeib) :: kbdy
-      integer, intent(in), dimension(ibib:ieib,jbib:jeib,kmaxib) :: hflxw,hflxe,hflxs,hflxn
       logical, intent(in) :: dowriteout,dorad,dotdwrite,doazimwrite,dorestart
       logical, intent(inout) :: getdbz,getvt,dotbud,doqbud,doubud,dovbud,dowbud,donudge
 
@@ -304,7 +220,6 @@
 ! Arrays and variables defined inside solve
 
       integer :: i,j,k,n,nrk,bflag,pdef,diffit,k1
-      integer :: has_reqc,has_reqi,has_reqs,do_radar_ref,ke_diag
 
       real :: delqv,delpi,delth,delt,fac,epsd,dheat,dz1,xs
       real :: foo1,foo2
@@ -450,6 +365,7 @@
         do k=1,ntwk
         do j=1,nj+1
         do i=1,ni+1
+          ! 211207:  all tendencies except 2pt term:
           u2pt(i,j,k) = (u3d(i,j,k)-ua(i,j,k))*rdt - u2pt(i,j,k)
           v2pt(i,j,k) = (v3d(i,j,k)-va(i,j,k))*rdt - v2pt(i,j,k)
         enddo
@@ -661,7 +577,7 @@
 
 !----------
 
-      if( cm1setup.eq.1 .and. iusetke )then
+      if( idoles .and. iusetke )then
 #ifdef MPI
         call comm_3t_end(tke3d,tkw1,tkw2,tke1,tke2,   &
                                tks1,tks2,tkn1,tkn2,reqs_tk)
@@ -1222,34 +1138,6 @@
     ENDIF
 
 !  Done with "swaths"
-!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-
-!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!  Pressure decomposition:
-
-    ifpdcomp:  &
-    IF( pdcomp )THEN
-    IF( dowriteout .or. doazimwrite )THEN
-
-      if(myid.eq.0) print *,'  Getting pressure diagnostics ... '
-
-      call       pidcomp(dt,xh,rxh,arh1,arh2,uh,xf,rxf,arf1,arf2,uf,vh,vf,          &
-                         gz,rgz,gzu,gzv,mh,rmh,mf,rmf,rds,rdsf,c1,c2,f2d,wprof,     &
-                         pi0,th0,rth0,thv0,qv0,qc0,qi0,rho0,rr0,rf0,rrf0,u0,v0,     &
-                         dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,divx,              &
-                         u3d,rru,uten,uten1,v3d,rrv,vten,vten1,w3d,rrw,wten,wten1,  &
-                         rho,pp3d,th3d,q3d,udiag,vdiag,wdiag,pdiag,                 &
-                         cfb,cfa,cfc,ad1,ad2,pdt,lgbth,lgbph,rhs,trans,             &
-                         bndy,kbdy,hflxw,hflxe,hflxs,hflxn)
-
-      if(myid.eq.0) print *,'  ... finished pressure diagnostics '
-
-      if(timestats.ge.1) time_poiss=time_poiss+mytime()
-
-    ENDIF
-    ENDIF  ifpdcomp
-
-!  end pressure decomposition.
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 !--------------------------------------------------------------------

@@ -280,7 +280,7 @@
                        q3d(ib,jb,kb,5),qten(ib,jb,kb,5))
           call fallout(dt,qbudget(6),ruh,rvh,zh,mh,mf,rain,prate,dum3,rho,   &
                        q3d(ib,jb,kb,6),qten(ib,jb,kb,6))
-          if(getdbz) call calcdbz(rho,q3d(ib,jb,kb,3),q3d(ib,jb,kb,5),q3d(ib,jb,kb,6),  &
+          if(getdbz .and. qd_dbz.ge.1 ) call calcdbz(rho,q3d(ib,jb,kb,3),q3d(ib,jb,kb,5),q3d(ib,jb,kb,6),  &
                                   qdiag(ibdq,jbdq,kbdq,qd_dbz))
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -342,7 +342,12 @@
                   tevar=qbudget(5),train=qbudget(6),                         &
                   ruh=ruh,rvh=rvh,rmh=rmh,rr=dum3,rain=rain,prate=prate,     &
                   ib3d=ib3d,ie3d=ie3d,jb3d=jb3d,je3d=je3d,kb3d=kb3d,ke3d=ke3d, &
-                  nout3d=nout3d,out3d=out3d,eqtset=eqtset,                   &
+                  nout3d=nout3d,out3d=out3d,eqtset=eqtset,getvt=getvt,       &
+                  vtc=qten(ib,jb,kb,nqc),                                    &
+                  vtr=qten(ib,jb,kb,nqr),                                    &
+                  vti=qten(ib,jb,kb,nqi),                                    &
+                  vts=qten(ib,jb,kb,nqs),                                    &
+                  vtg=qten(ib,jb,kb,nqg),                                    &
                   ids=1  ,ide=ni+1 , jds= 1 ,jde=nj+1 , kds=1  ,kde=nk+1 ,   &
                   ims=ib ,ime=ie   , jms=jb ,jme=je   , kms=kb ,kme=ke ,     &
                   its=1  ,ite=ni   , jts=1  ,jte=nj   , kts=1  ,kte=nk )
@@ -392,6 +397,70 @@
             enddo
             enddo
           endif
+
+          IF( getvt )THEN
+          IF( dowriteout .or. dotdwrite .or. doazimwrite .or. dorestart )THEN
+          if( qd_vtc.ge.1 .or. qd_vtr.ge.1 .or. qd_vts.ge.1 .or. qd_vtg.ge.1 .or. qd_vti.ge.1 )then
+            if(myid.eq.0) print *,'  Getting fall velocities for Thompson MP scheme '
+              if( qd_vtc.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
+                do j=1,nj
+                do i=1,ni
+                  qdiag(i,j,k,qd_vtc) = qten(i,j,k,nqc)
+                enddo
+                enddo
+                enddo
+              endif
+              if( qd_vtr.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
+                do j=1,nj
+                do i=1,ni
+                  qdiag(i,j,k,qd_vtr) = qten(i,j,k,nqr)
+                enddo
+                enddo
+                enddo
+              endif
+              if( qd_vts.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
+                do j=1,nj
+                do i=1,ni
+                  qdiag(i,j,k,qd_vts) = qten(i,j,k,nqs)
+                enddo
+                enddo
+                enddo
+              endif
+              if( qd_vtg.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
+                do j=1,nj
+                do i=1,ni
+                  qdiag(i,j,k,qd_vtg) = qten(i,j,k,nqg)
+                enddo
+                enddo
+                enddo
+              endif
+              if( qd_vti.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
+                do j=1,nj
+                do i=1,ni
+                  qdiag(i,j,k,qd_vti) = qten(i,j,k,nqi)
+                enddo
+                enddo
+                enddo
+              endif
+          endif
+          ENDIF
+          ENDIF
+
           if(timestats.ge.1) time_microphy=time_microphy+mytime()
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -548,45 +617,64 @@
 
           IF( getvt )THEN
           IF( dowriteout .or. dotdwrite .or. doazimwrite .or. dorestart )THEN
-            !$omp parallel do default(shared)  &
-            !$omp private(i,j,k)
-            do k=1,nk
+          if( qd_vtc.ge.1 .or. qd_vtr.ge.1 .or. qd_vts.ge.1 .or. qd_vtg.ge.1 .or. qd_vti.ge.1 )then
+            if(myid.eq.0) print *,'  Getting fall velocities for Morrison MP scheme '
               if( qd_vtc.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
                 do j=1,nj
                 do i=1,ni
                   qdiag(i,j,k,qd_vtc) = qten(i,j,k,nqc)
                 enddo
                 enddo
+                enddo
               endif
               if( qd_vtr.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
                 do j=1,nj
                 do i=1,ni
                   qdiag(i,j,k,qd_vtr) = qten(i,j,k,nqr)
                 enddo
                 enddo
+                enddo
               endif
               if( qd_vts.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
                 do j=1,nj
                 do i=1,ni
                   qdiag(i,j,k,qd_vts) = qten(i,j,k,nqs)
                 enddo
                 enddo
+                enddo
               endif
               if( qd_vtg.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
                 do j=1,nj
                 do i=1,ni
                   qdiag(i,j,k,qd_vtg) = qten(i,j,k,nqg)
                 enddo
                 enddo
+                enddo
               endif
               if( qd_vti.ge.1 )then
+                !$omp parallel do default(shared)  &
+                !$omp private(i,j,k)
+                do k=1,nk
                 do j=1,nj
                 do i=1,ni
                   qdiag(i,j,k,qd_vti) = qten(i,j,k,nqi)
                 enddo
                 enddo
+                enddo
               endif
-            enddo
+          endif
           ENDIF
           ENDIF
 

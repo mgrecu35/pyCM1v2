@@ -58,14 +58,13 @@
 !-----------------------------------------------------------------------------
 
       subroutine init3d(xh,rxh,uh,ruh,xf,rxf,uf,ruf,yh,vh,rvh,yf,vf,rvf,  &
-                        xfref,yfref,sigma,c1,c2,gz,zs,                    &
+                        xfref,xhref,yfref,yhref,sigma,c1,c2,gz,zs,        &
                         zh,mh,rmh,zf,mf,rmf,rho0s,pi0s,prs0s,             &
                         pi0,prs0,rho0,thv0,th0,rth0,qv0,                  &
                         u0,v0,qc0,qi0,rr0,rf0,rrf0,                       &
                         rain,sws,svs,sps,srs,sgs,sus,shs,                 &
                         thflux,qvflux,cd,ch,cq,f2d,                       &
                         dum1,dum2,dum3,dum4,divx,rho,prs,                 &
-                        t11,t12,t13,t22,t23,t33,                          &
                         rru,ua,u3d,uten,uten1,rrv,va,v3d,vten,vten1,      &
                         rrw,wa,w3d,wten,wten1,ppi,pp3d,ppten,sten,        &
                         tha,th3d,thten,thten1,qa,q3d,qten,                &
@@ -91,8 +90,8 @@
       real, dimension(ib:ie+1) :: xf,rxf,uf,ruf
       real, dimension(jb:je) :: yh,vh,rvh
       real, dimension(jb:je+1) :: yf,vf,rvf
-      real, dimension(1-ngxy:nx+ngxy+1) :: xfref
-      real, dimension(1-ngxy:ny+ngxy+1) :: yfref
+      real, intent(in), dimension(1-ngxy:nx+ngxy+1) :: xfref,xhref
+      real, intent(in), dimension(1-ngxy:ny+ngxy+1) :: yfref,yhref
       real, intent(in), dimension(kb:ke) :: sigma
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: c1,c2
       real, intent(in), dimension(itb:ite,jtb:jte) :: gz
@@ -106,7 +105,6 @@
       real, dimension(ib:ie,jb:je) :: thflux,qvflux,cd,ch,cq,f2d
       real, dimension(ib:ie,jb:je,kb:ke) :: dum1,dum2,dum3,dum4
       real, dimension(ib:ie,jb:je,kb:ke) :: divx,rho,prs
-      real, dimension(ib:ie,jb:je,kb:ke) :: t11,t12,t13,t22,t23,t33
       real, dimension(ib:ie+1,jb:je,kb:ke) :: u0,rru,ua,u3d,uten,uten1
       real, dimension(ib:ie,jb:je+1,kb:ke) :: v0,rrv,va,v3d,vten,vten1
       real, dimension(ib:ie,jb:je,kb:ke+1) :: rrw,wa,w3d,wten,wten1
@@ -225,7 +223,7 @@
       enddo
 
 
-      IF( cm1setup.eq.1 .and. iusetke .and. ( testcase.eq.3 .or. testcase.eq.4 .or.  testcase.eq.5 .or. testcase.eq.9 .or. testcase.eq.11 ) )THEN
+      IF( idoles .and. iusetke .and. ( testcase.eq.3 .or. testcase.eq.4 .or.  testcase.eq.5 .or. testcase.eq.9 .or. testcase.eq.11 ) )THEN
           IF( testcase.eq.3 )THEN
             ! shallow Cu case (Siebesma at al, 2003, JAS)
             do k=1,nk+1
@@ -1255,7 +1253,7 @@
         if(dowr) write(outfile,*) '  Warm bubble'
         if(dowr) write(outfile,*)
 
-        ric     =  centerx      ! center of bubble in x-direction (m)
+        ric     =  centerx  ! center of bubble in x-direction (m)
         zc      =   1500.0  ! height of center of bubble above ground (m)
         bhrad   =  10000.0  ! horizontal radius of bubble (m)
         bvrad   =   1500.0  ! vertical radius of bubble (m)
@@ -1302,8 +1300,8 @@
         zdeep    =  2000.0      ! depth (m) of forced convergence
         lamx     = 10000.0      ! Loftus et al lambda_x parameter
         lamy     = 10000.0      ! Loftus at al lambda_y parameter
-        xcent    =     centerx      ! x-location (m)  !centerx
-        ycent    =     centery     ! y-location (m)
+        xcent    =     0.0      ! x-location (m)
+        ycent    =     0.0      ! y-location (m)
         convtime =   900.0      ! time (s) at beginning of simulation over
                                 ! which convergence is applied
 
@@ -1331,7 +1329,7 @@
         xc_uforce     =  minx + 0.5*(maxx-minx)    ! x_c (m), center point of forcing in x
         xr_uforce     =  10000.0                   ! x_r (m), radius of forcing in x
         zr_uforce     =  10000.0                   ! z_r (m), radius of forcing in z
-        alpha_uforce  =    0.15                    ! alpha (m/s/s), max intensity of forcing
+        alpha_uforce  =    0.1                     ! alpha (m/s/s), max intensity of forcing
         t1_uforce     =  3300.0                    ! time (s) to start ramping down u-forcing
         t2_uforce     =  3600.0                    ! time (s) to turn off u-forcing
 
@@ -1467,13 +1465,14 @@
           enddo
         enddo
 
-      ELSEIF( testcase.eq.1 .or. testcase.eq.2 .or. testcase.eq.6 .or. testcase.eq.10 .or. testcase.eq.11 )THEN
+      ELSEIF( testcase.eq.1 .or. testcase.eq.2 .or. testcase.eq.6 .or. testcase.eq.10 .or. testcase.eq.11 .or. testcase.eq.15 )THEN
 
         ! 1: convective boundary layer (Sullivan and Patton, 2011, JAS)
         ! 2: shear-driven boundary layer (Moeng and Sullivan, 1994, JAS)
         ! 6: hurricane boundary layer (Bryan et al, 2017, BLM)
 
         amplitude = 0.10
+        dpi = 4.0d0*datan(1.0d0)
 
         do k=1,nk
         if( zh(1,1,k).le.100.0 )then
@@ -1590,18 +1589,33 @@
         !  locations, but this default code simply puts them
         !  everywhere)
         do k=1,nk
+          ! dum1,dum2 are define at scalar pts:
+          do j=0,nj+1
+          do i=0,ni+1
+            dum1(i,j,k) = u0(1,1,k)
+            dum2(i,j,k) = v0(1,1,k)
+          enddo
+          enddo
           ! cm1r17: loop over entire domain
           do jj = 0,ny+2
-          do ii = 0,nx+2
+          do ii = 0+5,nx+1-5
             call random_number(rand)
             call random_number(rand2)
             i = ii - myi1 + 1
             j = jj - myj1 + 1
             ! check to see if this processor has this gridpoint:
             IF( i.ge.ib .and. i.le.ie .and. j.ge.jb .and. j.le.je )THEN
-              ua(i,j,k)=ua(i,j,k)+amplitude*(2.0*rand-1.0)
-              va(i,j,k)=va(i,j,k)+amplitude*(2.0*rand2-1.0)
+              dum1(i,j,k)=dum1(i,j,k)+amplitude*(2.0*rand-1.0)
+              dum2(i,j,k)=dum2(i,j,k)+amplitude*(2.0*rand2-1.0)
+!!!              tha(i,j,k)=tha(i,j,k)+0.5*(2.0*rand2-1.0)
             ENDIF
+          enddo
+          enddo
+          ! interpolate to u,v pts:
+          do j=1,nj+1
+          do i=1,ni+1
+            ua(i,j,k) = 0.5*(dum1(i-1,j,k)+dum1(i,j,k))
+            va(i,j,k) = 0.5*(dum2(i,j-1,k)+dum2(i,j,k))
           enddo
           enddo
         enddo
@@ -1997,21 +2011,26 @@
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 
-      subroutine getset(restarted,mass1,uh,ruh,vh,rvh,xh,yh,xf,yf,         &
-                        zs,gz,sigma,sigmaf,rmh,mf,dzdx,dzdy,dumk1,dumk2,   &
-                        pi0,th0,rho0,prs0,ust,u1,v1,s1,u0,v0,rth0,         &
-                        zh,c1,c2,zf,rr,rf,rho,prs,dum1,dum2,               &
-                        ua,u3d,va,v3d,wa,w3d,ppi,pp3d,ppx,phi1,phi2,       &
-                        tha,th3d,qa,q3d,tkea,tke3d,pta,pt3d,pdata,         &
-                        bndy,kbdy,                                         &
-                        reqs_u,reqs_v,reqs_w,reqs_s,reqs_p,reqs_tk,        &
-                        nw1,nw2,ne1,ne2,sw1,sw2,se1,se2,                   &
-                        pw1,pw2,pe1,pe2,ps1,ps2,pn1,pn2,                   &
-                        uw31,uw32,ue31,ue32,us31,us32,un31,un32,           &
-                        vw31,vw32,ve31,ve32,vs31,vs32,vn31,vn32,           &
-                        ww31,ww32,we31,we32,ws31,ws32,wn31,wn32,           &
-                        sw31,sw32,se31,se32,ss31,ss32,sn31,sn32,           &
-                        tkw1,tkw2,tke1,tke2,tks1,tks2,tkn1,tkn2)
+      subroutine getset(restarted,mass1,cloudvar,dt,   &
+                        xh,rxh,arh1,arh2,uh,ruh,xf,rxf,arf1,arf2,uf,ruf,yh,vh,rvh,yf,vf,rvf, &
+                        zs,gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy,gx,gxu,gy,gyv,    &
+                        rds,sigma,rdsf,sigmaf,zh,mh,rmh,c1,c2,zf,mf,rmf,dumk1,dumk2, &
+                        pi0,th0,rho0,rf0,prs0,thv0,ust,znt,u1,v1,s1,cm0,u0,v0,rth0,rr,rf,rho,prs, &
+                        dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,                &
+                        ua,u3d,va,v3d,wa,w3d,ppi,pp3d,ppx,phi1,phi2,            &
+                        tha,th3d,qa,q3d,cme,csm,ce1,ce2,                        &
+                        tkea,tke3d,kmh,kmv,khh,khv,nm,defv,defh,lenscl,dissten, &
+                        t11,t12,t13,t22,t23,t33,iamsat,                         &
+                        pta,pt3d,pdata,bndy,kbdy,                               &
+                        reqs_u,reqs_v,reqs_w,reqs_s,reqs_p,reqs_tk,             &
+                        nw1,nw2,ne1,ne2,sw1,sw2,se1,se2,                        &
+                        pw1,pw2,pe1,pe2,ps1,ps2,pn1,pn2,                        &
+                        uw31,uw32,ue31,ue32,us31,us32,un31,un32,                &
+                        vw31,vw32,ve31,ve32,vs31,vs32,vn31,vn32,                &
+                        ww31,ww32,we31,we32,ws31,ws32,wn31,wn32,                &
+                        sw31,sw32,se31,se32,ss31,ss32,sn31,sn32,                &
+                        tkw1,tkw2,tke1,tke2,tks1,tks2,tkn1,tkn2,                &
+                        kw1,kw2,ke1,ke2,ks1,ks2,kn1,kn2)
 
       use input
       use constants
@@ -2020,7 +2039,7 @@
       use comm_module
       use parcel_module , only : getparcelzs
       use ib_module
-      use turb_module , only : tkebc
+      use turb_module , only : tkebc,calcnm,calcdef,turbsmag
 #ifdef MPI
       use mpi
 #endif
@@ -2028,28 +2047,28 @@
  
       logical, intent(in) :: restarted
       double precision, intent(inout) :: mass1
-      real, intent(in), dimension(ib:ie) :: uh,ruh,xh
-      real, intent(in), dimension(jb:je) :: vh,rvh,yh
-      real, intent(in), dimension(ib:ie+1) :: xf
-      real, intent(in), dimension(jb:je+1) :: yf
+      logical, intent(in), dimension(maxq) :: cloudvar
+      real, intent(inout) :: dt
+      real, intent(in), dimension(ib:ie) :: xh,rxh,arh1,arh2,uh,ruh
+      real, intent(in), dimension(ib:ie+1) :: xf,rxf,arf1,arf2,uf,ruf
+      real, intent(in), dimension(jb:je) :: yh,vh,rvh
+      real, intent(in), dimension(jb:je+1) :: yf,vf,rvf
       real, intent(in), dimension(ib:ie,jb:je) :: zs
-      real, intent(in), dimension(itb:ite,jtb:jte) :: gz
-      real, intent(in), dimension(kb:ke) :: sigma
-      real, intent(in), dimension(kb:ke+1) :: sigmaf
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: rmh
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: mf
-      real, intent(in), dimension(itb:ite,jtb:jte) :: dzdx,dzdy
+      real, intent(in), dimension(itb:ite,jtb:jte) :: gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy
+      real, intent(in), dimension(itb:ite,jtb:jte,ktb:kte) :: gx,gxu,gy,gyv
+      real, intent(in), dimension(kb:ke) :: rds,sigma
+      real, intent(in), dimension(kb:ke+1) :: rdsf,sigmaf
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: zh,mh,rmh,c1,c2
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: zf,mf,rmf
       double precision, intent(inout), dimension(kb:ke) :: dumk1,dumk2
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: pi0,rho0,prs0
+      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: pi0,rho0,rf0,prs0,thv0
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: th0
-      real, intent(inout), dimension(ib:ie,jb:je) :: ust,u1,v1,s1
+      real, intent(inout), dimension(ib:ie,jb:je) :: ust,znt,u1,v1,s1,cm0
       real, intent(inout), dimension(ib:ie+1,jb:je,kb:ke) :: u0
       real, intent(inout), dimension(ib:ie,jb:je+1,kb:ke) :: v0
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: rth0
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: zh,c1,c2
-      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: rr,rf
-      real, intent(in), dimension(ib:ie,jb:je,kb:ke+1) :: zf
-      real, dimension(ib:ie,jb:je,kb:ke) :: rho,prs,dum1,dum2
+      real, dimension(ib:ie,jb:je,kb:ke) :: rr,rf,rho,prs
+      real, dimension(ib:ie,jb:je,kb:ke) :: dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8
       real, dimension(ib:ie+1,jb:je,kb:ke) :: ua,u3d
       real, dimension(ib:ie,jb:je+1,kb:ke) :: va,v3d
       real, dimension(ib:ie,jb:je,kb:ke+1) :: wa,w3d
@@ -2057,7 +2076,12 @@
       real, intent(inout), dimension(ibph:ieph,jbph:jeph,kbph:keph) :: phi1,phi2
       real, dimension(ib:ie,jb:je,kb:ke) :: tha,th3d
       real, dimension(ibm:iem,jbm:jem,kbm:kem,numq) :: qa,q3d
+      real, dimension(ibc:iec,jbc:jec,kbc:kec) :: cme,csm,ce1,ce2
       real, dimension(ibt:iet,jbt:jet,kbt:ket) :: tkea,tke3d
+      real, intent(inout), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmh,kmv,khh,khv
+      real, intent(inout), dimension(ib:ie,jb:je,kb:ke+1) :: nm,defv,defh,lenscl,dissten
+      real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: t11,t12,t13,t22,t23,t33
+      logical, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: iamsat
       real, dimension(ibp:iep,jbp:jep,kbp:kep,npt) :: pta,pt3d
       real, intent(inout), dimension(nparcels,npvals) :: pdata
       logical, intent(in), dimension(ibib:ieib,jbib:jeib,kbib:keib) :: bndy
@@ -2076,11 +2100,15 @@
       real, dimension(imp,cmp,kmp)   :: ss31,ss32,sn31,sn32
       real, dimension(cmp,jmp,kmt)   :: tkw1,tkw2,tke1,tke2
       real, dimension(imp,cmp,kmt)   :: tks1,tks2,tkn1,tkn2
+      real, intent(inout), dimension(jmp,kmt,4)     :: kw1,kw2,ke1,ke2
+      real, intent(inout), dimension(imp,kmt,4)     :: ks1,ks2,kn1,kn2
 
 !----------
  
       integer :: i,j,k,n
       real(kind=qp) :: temq
+      real :: xw,xe,ys,yn,rtmp,rmin
+      logical :: doit
 
       if(dowr) write(outfile,*) 'Inside GETSET'
       if(dowr) write(outfile,*)
@@ -2090,7 +2118,7 @@
         IF( do_ib )THEN
           call zero_out_uv(bndy,kbdy,ua ,va )
           call zero_out_w(bndy,kbdy,wa )
-          if( cm1setup.eq.1 .and. iusetke ) call zero_out_w(bndy,kbdy,tkea )
+          if( idoles .and. iusetke ) call zero_out_w(bndy,kbdy,tkea )
         ENDIF
 
 !------------------------------------------------------------------
@@ -2106,7 +2134,7 @@
           call bcs(qa(ibm,jbm,kbm,n))
         enddo
       endif
-      if( cm1setup.eq.1 .and. iusetke )then
+      if( idoles .and. iusetke )then
         call bcw(tkea,1)
       endif
       if(iptra.eq.1)then
@@ -2161,7 +2189,7 @@
         enddo
       ENDIF
 
-      IF( cm1setup.eq.1 .and. iusetke )THEN
+      IF( idoles .and. iusetke )THEN
         call comm_3t_start(tkea,tkw1,tkw2,tke1,tke2,   &
                                 tks1,tks2,tkn1,tkn2,reqs_tk)
         call comm_3t_end(tkea,tkw1,tkw2,tke1,tke2,   &
@@ -2200,7 +2228,7 @@
         call bc2d(wa(ib,jb,1))
       endif
 
-      if( cm1setup.eq.1 .and. iusetke )then
+      if( idoles .and. iusetke )then
         do j=1,nj
         do i=1,ni
           tkea(i,j,1) = tkea(i,j,2)
@@ -2272,7 +2300,7 @@
         enddo
       endif
 
-      if( cm1setup.eq.1 .and. iusetke )then
+      if( idoles .and. iusetke )then
         do k=kbt,ket
         do j=jbt,jet
         do i=ibt,iet
@@ -2365,6 +2393,8 @@
   ENDIF
 
 
+    IF( psolver.le.3 )THEN
+
         call bcs(rho)
 #ifdef MPI
         call comm_1s_start(rho,pw1,pw2,pe1,pe2,ps1,ps2,pn1,pn2,reqs_p)
@@ -2409,6 +2439,20 @@
           rf(i,j,nk+1) = cgt1*rho(i,j,nk)+cgt2*rho(i,j,nk-1)+cgt3*rho(i,j,nk-2)
         enddo
         enddo
+
+    ELSE
+
+      do k=kb,ke
+      do j=jb,je
+      do i=ib,ie
+        rho(i,j,k) = rho0(i,j,k)
+        rr(i,j,k) = 1.0/rho0(i,j,k)
+        rf(i,j,k) = rf0(i,j,k)
+      enddo
+      enddo
+      enddo
+
+    ENDIF
 
 !------------------------------------------------------------------
 !  cm1r18:  get total mass of dry air at t=0
@@ -2525,6 +2569,160 @@
           enddo
         endif
       endif
+
+!------------------------------------------------------------------
+
+      ifidoles:  &
+      IF( idoles )THEN
+
+        cm1setupval:  &
+        if( cm1setup.eq.1 )then
+
+          ! LES:
+          ! cm0 is the same everywhere
+
+          cm0 = c_m
+
+        elseif( cm1setup.eq.4 )then  cm1setupval
+
+          ! LES embedded within mesoscale model:
+          ! cm0 is non-zero in the inner part of the domain only
+
+          cm0 = 0.0
+
+          IF( les_subdomain_shape.eq.1 )THEN
+            ! square/rectangle:
+
+            xw = centerx - 0.5*les_subdomain_xlen
+            xe = centerx + 0.5*les_subdomain_xlen
+            ys = centery - 0.5*les_subdomain_ylen
+            yn = centery + 0.5*les_subdomain_ylen
+
+            if( myid.eq.0 ) print *
+            if( myid.eq.0 ) print *,'  centerx,centery = ',centerx,centery
+            if( myid.eq.0 ) print *,'  xw,xe           = ',xw,xe
+            if( myid.eq.0 ) print *,'  ys,yn           = ',ys,yn
+            if( myid.eq.0 ) print *
+
+            do j=jb,je
+            do i=ib,ie
+              if( xh(i).gt.xw .and. xh(i).lt.xe .and. yh(j).gt.ys .and. yh(j).lt.yn )then
+                cm0(i,j) = c_m
+                ! 220301:
+                if( xh(i).lt. xw+les_subdomain_trnslen ) cm0(i,j) = min( cm0(i,j) ,  c_m*(xh(i)-xw)/les_subdomain_trnslen )
+                if( xh(i).gt. xe-les_subdomain_trnslen ) cm0(i,j) = min( cm0(i,j) , -c_m*(xh(i)-xe)/les_subdomain_trnslen )
+                if( yh(j).lt. ys+les_subdomain_trnslen ) cm0(i,j) = min( cm0(i,j) ,  c_m*(yh(j)-ys)/les_subdomain_trnslen )
+                if( yh(j).gt. yn-les_subdomain_trnslen ) cm0(i,j) = min( cm0(i,j) , -c_m*(yh(j)-yn)/les_subdomain_trnslen )
+              endif
+            enddo
+            enddo
+
+          ELSE
+
+            if( myid.eq.0 )then
+              print *
+              print *,'  undefined value for les_subdomain_shape '
+              print *
+              print *,'    24987 '
+              print *
+            endif
+
+            call stopcm1
+
+          ENDIF
+
+        endif  cm1setupval
+
+        ! cm0 should now be set ... get other variables:
+        do k=kb,ke
+        do j=jb,je
+        do i=ib,ie
+          if( cm0(i,j).gt.cmemin )then
+            cme(i,j,k) = cm0(i,j)
+            ce1(i,j,k) = cme(i,j,k) * c_l * c_l * ( 1.0 / ri_c - 1.0 )
+            ce2(i,j,k) = max( 0.0 , cme(i,j,k) * pi * pi - ce1(i,j,k) )
+            csm(i,j,k) = ( cme(i,j,k) * cme(i,j,k) * cme(i,j,k) / ( ce1(i,j,k) + ce2(i,j,k) ) )**0.25   ! Smagorinsky constant
+          endif
+        enddo
+        enddo
+        enddo
+
+      ENDIF  ifidoles
+
+!------------------------------------------------------------------
+!  Get eddy diffusivities if interpolating on restart:
+
+    doit = .true.
+    IF( doit )THEN
+
+    iorst:  &
+    IF( interp_on_restart .and. ( cm1setup.eq.1 .or. cm1setup.eq.4 ) )THEN
+    if( idoles .and. iusetke )then
+
+      if(myid.eq.0) print *
+      if(myid.eq.0) print *,'  Getting initial subgrid tke ... '
+      if(myid.eq.0) print *
+
+        iamsat = .false.
+        call calcnm(c1,c2,mf,pi0,thv0,th0,cloudvar,nm,dum1,dum2,dum3,dum4,dum5,dum6,   &
+                    prs,ppi,tha,qa,iamsat)
+
+        call calcdef(    rds,sigma,rdsf,sigmaf,zs,gz,rgz,gzu,rgzu,gzv,rgzv,                &
+                     xh,rxh,arh1,arh2,uh,xf,rxf,arf1,arf2,uf,vh,vf,mh,c1,c2,mf,defv,defh,  &
+                     dum1,dum2,ua,va,wa,t11,t12,t13,t22,t23,t33,gx,gy,rho,rr,rf)
+
+
+        call     turbsmag(  0  ,dt,ruh,rvh,rmh,mf,rmf,th0,rf,              &
+                          nm,defv,defh,dum4,dum5  ,dum6  ,zf,znt  ,ust,csm, &
+                          kmh,kmv,khh,khv,lenscl,dissten,                  &
+                          nw1,nw2,ne1,ne2,sw1,sw2,se1,se2,                 &
+                          kw1(1,1,1),kw2(1,1,1),ke1(1,1,1),ke2(1,1,1),     &
+                          ks1(1,1,1),ks2(1,1,1),kn1(1,1,1),kn2(1,1,1),     &
+                          kw1(1,1,2),kw2(1,1,2),ke1(1,1,2),ke2(1,1,2),     &
+                          ks1(1,1,2),ks2(1,1,2),kn1(1,1,2),kn2(1,1,2))
+
+      do k=2,nk
+      do j=1,nj
+      do i=1,ni
+        if( cm0(i,j).gt.cmemin )  &
+        tkea(i,j,k) = (kmv(i,j,k)/(cme(i,j,k)*lenscl(i,j,k)))**2
+      enddo
+      enddo
+      enddo
+
+        IF( do_ib ) call zero_out_w(bndy,kbdy,tkea )
+        call bcw(tkea,1)
+#ifdef MPI
+        call comm_3t_start(tkea,tkw1,tkw2,tke1,tke2,   &
+                                tks1,tks2,tkn1,tkn2,reqs_tk)
+        call comm_3t_end(tkea,tkw1,tkw2,tke1,tke2,   &
+                              tks1,tks2,tkn1,tkn2,reqs_tk)
+#endif
+        do j=1,nj
+        do i=1,ni
+          tkea(i,j,1) = tkea(i,j,2)
+        enddo
+        enddo
+        call bc2d(tkea(ibt,jbt,1))
+#ifdef MPI
+        call comm_1s2d_start(tkea(ibt,jbt,1),sw31(1,1,1),sw32(1,1,1),se31(1,1,1),se32(1,1,1),   &
+                                             ss31(1,1,1),ss32(1,1,1),sn31(1,1,1),sn32(1,1,1),reqs_s)
+        call comm_1s2d_end(tkea(ibt,jbt,1),sw31(1,1,1),sw32(1,1,1),se31(1,1,1),se32(1,1,1),   &
+                                           ss31(1,1,1),ss32(1,1,1),sn31(1,1,1),sn32(1,1,1),reqs_s)
+        call bcs2_2d(tkea(ibt,jbt,1))
+        call comm_2d_corner(tkea(ibt,jbt,1))
+#endif
+        do k=kbt,ket
+        do j=jbt,jet
+        do i=ibt,iet
+          tke3d(i,j,k)=tkea(i,j,k)
+        enddo
+        enddo
+        enddo
+
+    endif
+    ENDIF  iorst
+    ENDIF
 
 !------------------------------------------------------------------
 

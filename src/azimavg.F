@@ -3,7 +3,7 @@
   implicit none
 
   private
-  public :: azimavg,getpsmth,getpcent,change_uvmove,update_adapt_move
+  public :: azimavg,getpsmth,getpcent,change_uvmove,update_adapt_move,getrangle
 
   integer, parameter :: varmax = 1000
 
@@ -15,7 +15,7 @@
   CONTAINS
 
     subroutine azimavg(nstep,mtime,nwritea,arecs,arecw,qname,dt,dosfcflx,      &
-                   icrs,icenter,jcenter,xcenter,ycenter,                       &
+                   icrs,icenter,jcenter,xcenter,ycenter,domainlocx,domainlocy, &
                    xh,rxh,arh1,arh2,uh,ruh,xf,rxf,arf1,arf2,uf,ruf,            &
                    yh,vh,rvh,yf,vf,rvf,                                        &
                    xfref,yfref,rds,sigma,rdsf,sigmaf,                          &
@@ -24,19 +24,23 @@
                    pi0,rho0,prs0,thv0,th0,rth0,qv0,qc0,u0,v0,                  &
                    qi0,rr0,rf0,rrf0,                                           &
                    zs,gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy,gx,gxu,gy,gyv,        &
-                   tsk,znt,ust,thflux,qvflux,cd,ch,cq,u1,v1,s1,xland,psfc,tlh, &
+                   tsk,znt,ust,thflux,qvflux,cd,ch,cq,u1,v1,s1,xland,psfc,tlh,cm0, &
                    dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,                    &
                    divx,rho,rf,prs,t11,t12,t13,t22,t23,t33,                    &
                    rru,u3d,ugr ,utmp ,                                         &
                    rrv,v3d,vgr ,vtmp ,                                         &
                    rrw,w3d,wten,wtmp ,                                         &
                    pp3d,ppten,sten,th3d,thv ,thten,thten1,                     &
-                   q3d,qten,kmh,kmv,khh,khv,tkea,tke3d,tketen,                 &
+                   q3d,qten,kmh,kmv,khh,khv,cme,csm,ce1,ce2,tkea,tke3d,tketen, &
                    nm,defv,defh,lenscl,dissten,                                &
                    thpten,qvpten,qcpten,qipten,upten,vpten,xkzh,xkzq,xkzm,     &
                    rain,u10,v10,s10,br,brcr,hpbl,prate,                        &
-                   swten,lwten,cldfra,qke,qke_adv,                             &
+                   swten,lwten,cldfra,qke,qke_adv,el_pbl,edmf_a,               &
                    tdiag,qdiag,udiag,vdiag,wdiag,pdiag,out2d,out3d,getdbz,getvt, &
+                   effc,effi,effs,effr,effg,effis,                             &
+                   lwupt,lwdnt,lwupb,lwdnb,                                    &
+                   swupt,swdnt,swupb,swdnb,lwcf,swcf,coszen,                   &
+                    ir, rr, angle,kmwk,                                        &
                    dat1     ,dat2     ,dat3       ,                            &
                    sw31,sw32,se31,se32,ss31,ss32,sn31,sn32,flag)
         ! end_azimavg
@@ -60,6 +64,7 @@
     integer, intent(in) :: icrs
     integer, intent(inout) :: icenter,jcenter
     real,    intent(inout) :: xcenter,ycenter
+    double precision, intent(in) :: domainlocx,domainlocy
     real, intent(in), dimension(ib:ie) :: xh,rxh,arh1,arh2,uh,ruh
     real, intent(in), dimension(ib:ie+1) :: xf,rxf,arf1,arf2,uf,ruf
     real, intent(in), dimension(jb:je) :: yh,vh,rvh
@@ -79,7 +84,7 @@
     real, intent(in), dimension(itb:ite,jtb:jte) :: gz,rgz,gzu,rgzu,gzv,rgzv,dzdx,dzdy
     real, intent(in), dimension(itb:ite,jtb:jte,ktb:kte) :: gx,gxu,gy,gyv
     real, intent(in), dimension(ib:ie,jb:je) :: tsk,znt,ust,thflux,qvflux,cd,ch,cq,  &
-                                                u1,v1,s1,xland,psfc,tlh
+                                                u1,v1,s1,xland,psfc,tlh,cm0
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: divx,rho,rf,prs
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: t11,t12,t13,t22,t23,t33
@@ -89,8 +94,9 @@
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: pp3d,ppten,sten
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: th3d,thv,thten,thten1
     real, intent(inout), dimension(ibm:iem,jbm:jem,kbm:kem,numq) :: q3d,qten
-    real, intent(inout), dimension(ibc:iec,jbc:jec,kbc:kec) :: kmh,kmv,khh,khv
-    real, intent(inout), dimension(ibt:iet,jbt:jet,kbt:ket) :: tkea,tke3d,tketen
+    real, intent(in),    dimension(ibc:iec,jbc:jec,kbc:kec) :: kmh,kmv,khh,khv
+    real, intent(in),    dimension(ibc:iec,jbc:jec,kbc:kec) :: cme,csm,ce1,ce2
+    real, intent(in),    dimension(ibt:iet,jbt:jet,kbt:ket) :: tkea,tke3d,tketen
     real, intent(inout), dimension(ib:ie,jb:je,kb:ke+1) :: nm,defv,defh,lenscl,dissten
     real, intent(in), dimension(ibb:ieb,jbb:jeb,kbb:keb) :: thpten,qvpten,qcpten,qipten,upten,vpten
     real, intent(in), dimension(ibb:ieb,jbb:jeb,kbb:keb) :: xkzh,xkzq,xkzm
@@ -98,7 +104,7 @@
     real, intent(in), dimension(ibl:iel,jbl:jel) :: u10,v10,s10,br,brcr,hpbl
     real, intent(in), dimension(ib:ie,jb:je) :: prate
     real, intent(in), dimension(ibr:ier,jbr:jer,kbr:ker) :: swten,lwten,cldfra
-    real, intent(inout), dimension(ibmynn:iemynn,jbmynn:jemynn,kbmynn:kemynn) :: qke,qke_adv
+    real, intent(inout), dimension(ibmynn:iemynn,jbmynn:jemynn,kbmynn:kemynn) :: qke,qke_adv,el_pbl,edmf_a
     real, intent(in) , dimension(ibdt:iedt,jbdt:jedt,kbdt:kedt,ntdiag) :: tdiag
     real, intent(in) , dimension(ibdq:iedq,jbdq:jedq,kbdq:kedq,nqdiag) :: qdiag
     real, intent(in) , dimension(ibdv:iedv,jbdv:jedv,kbdv:kedv,nudiag) :: udiag
@@ -109,6 +115,13 @@
     real, intent(inout), dimension(ib2d:ie2d,jb2d:je2d,nout2d) :: out2d
     real, intent(in) , dimension(ib3d:ie3d,jb3d:je3d,kb3d:ke3d,nout3d) :: out3d
     logical, intent(in) :: getdbz,getvt
+    real, intent(in), dimension(ibr:ier,jbr:jer,kbr:ker) :: effc,effi,effs,effr,effg,effis
+    real, intent(in), dimension(ibr:ier,jbr:jer) :: lwupt,lwdnt,lwupb,lwdnb
+    real, intent(in), dimension(ibr:ier,jbr:jer) :: swupt,swdnt,swupb,swdnb
+    real, intent(in), dimension(ibr:ier,jbr:jer) :: lwcf,swcf,coszen
+    integer, intent(inout), dimension(ib:ie,jb:je) :: ir
+    real, intent(inout), dimension(ib:ie,jb:je) :: rr,angle
+    real, intent(in), dimension(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) :: kmwk
     real, intent(inout), dimension(d3is,d3js) :: dat1
     real, intent(inout), dimension(d2is,d2js) :: dat2
     real, intent(inout), dimension(d3is,d3js,0:d3n-1) :: dat3
@@ -132,12 +145,10 @@
     double precision, dimension(icrs) :: area,savg2d
     double precision, dimension(icrs,nk+1) :: savg
     real, dimension(icrs,nk) :: uavg,vavg,wavg,wsavg,pavg,rhoavg,thavg,qvavg,mavg,thvavg,ppiavg
-    integer, dimension(ni,nj) :: ir
-    real, dimension(ni,nj) :: rr,angle
     real :: pisfc,prssfc,thsfc,qvsfc,ssfc,pd,p1,p2,p3,tx,qx,px,tlcl,ee,ql,qi,qvs,rrtmp
-    real :: ff,qvsl,qvsi,qt
+    real :: ff,qvsl,qvsi,qt,ucrit
     real :: xsave,ysave
-    logical :: doit
+    logical :: doit,dovt
 
     if( myid.eq.0 ) print *
     if( myid.eq.0 ) print *,' ..... begin azimavg code ..... '
@@ -180,8 +191,10 @@
     !---------------------------------------------------------------------------
     !  Get center point:
 
-    call       getcenter(nstep,mtime,rddr,xh,yh,zh,xfref,yfref,ugr,utmp,vgr,vtmp,pp3d,  &
-                         nwritea,icenter,jcenter,xcenter,ycenter)
+          call getcenter(nstep,mtime,rddr,xh,yh,zh,xfref,yfref,ugr,utmp,vgr,vtmp,pp3d,  &
+                         nwritea,icenter,jcenter,xcenter,ycenter,domainlocx,domainlocy)
+
+          call   getrangle(xh,yh,xcenter,ycenter, ir, rr, angle)
 
     !---------------------------------------------------------------------------
     ! open file:
@@ -245,69 +258,6 @@
       navg = 0.0
       area = 0.0
 
-      ir = 0
-      rr = 1.0e30
-      angle = 0.0
-
-      xsave = xcenter
-      ysave = ycenter
-
-    do nn = 1 , 9
-
-      if( nn.eq.1 )then
-        xcenter = xsave
-        ycenter = ysave
-      endif
-      if( nn.eq.2 )then
-        xcenter = xsave + (maxx-minx)
-        ycenter = ysave + (maxy-miny)
-      endif
-      if( nn.eq.3 )then
-        xcenter = xsave - (maxx-minx)
-        ycenter = ysave - (maxy-miny)
-      endif
-      if( nn.eq.4 )then
-        xcenter = xsave + (maxx-minx)
-        ycenter = ysave - (maxy-miny)
-      endif
-      if( nn.eq.5 )then
-        xcenter = xsave - (maxx-minx)
-        ycenter = ysave + (maxy-miny)
-      endif
-      if( nn.eq.6 )then
-        xcenter = xsave + (maxx-minx)
-        ycenter = ysave
-      endif
-      if( nn.eq.7 )then
-        xcenter = xsave - (maxx-minx)
-        ycenter = ysave
-      endif
-      if( nn.eq.8 )then
-        xcenter = xsave
-        ycenter = ysave + (maxy-miny)
-      endif
-      if( nn.eq.9 )then
-        xcenter = xsave
-        ycenter = ysave - (maxy-miny)
-      endif
-
-      do j=1,nj
-      do i=1,ni
-        rrtmp = sqrt( (xh(i)-xcenter)**2 + (yh(j)-ycenter)**2 )
-        if( rrtmp.lt.rr(i,j) )then
-          rr(i,j) = rrtmp
-          ir(i,j) = 1 + int( rr(i,j)*rddr )
-          if( (xh(i)-xcenter).ge.0.0 )then
-            angle(i,j) =      asin( (yh(j)-ycenter)/max(smeps,rr(i,j)) )
-          else
-            angle(i,j) = pi - asin( (yh(j)-ycenter)/max(smeps,rr(i,j)) )
-          endif
-        endif
-      enddo
-      enddo
-
-    enddo
-
       do j=1,nj
       do i=1,ni
         if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
@@ -316,9 +266,6 @@
         endif
       enddo
       enddo
-
-      xcenter = xsave
-      ycenter = ysave
 
 #ifdef MPI
       call MPI_ALLREDUCE(MPI_IN_PLACE,navg,icrs,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
@@ -455,6 +402,35 @@
 
       call     getavg2d(prate,icrs,savg2d,ir,rr,navg,area,ruh,rvh)
       call write2d(icrs,savg2d,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+    ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+    IF( imoist.eq.1 .and. nqv.ge.1 )THEN
+
+          !$omp parallel do default(shared)  &
+          !$omp private(i,j,k)
+          do j=1,nj
+            do i=1,ni
+              dum1(i,j,1) = 0.0
+            enddo
+              do k=1,nk
+              do i=1,ni
+                                                                                ! 1000 kg/m3
+                dum1(i,j,1) = dum1(i,j,1) + rho(i,j,k)*q3d(i,j,k,nqv)*dz*rmh(i,j,k)/1000.0
+              enddo
+              enddo
+          enddo
+
+      nvar = nvar+1
+      varname(nvar) = 'pwat'
+      vardesc(nvar) = 'precipitable water'
+      varunit(nvar) = 'm'
+      varlvls(nvar) = 0
+
+      call     getavg2d(dum1(ib,jb,1),icrs,savg2d,ir,rr,navg,area,ruh,rvh)
+      call write2d(icrs,savg2d,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
     ENDIF
 
       !c-c-c-c-c-c-c-c-c-c
@@ -637,7 +613,7 @@
         p2 = pi0(1,1,2)+pp3d(i,j,2)
         p3 = pi0(1,1,3)+pp3d(i,j,3)
         pisfc=cgs1*p1+cgs2*p2+cgs3*p3
-        prssfc = p00*(pisfc**cpdrd)
+        prssfc = psfc(i,j)
         thsfc = tsk(i,j)/pisfc
         qvsfc = rslf(prssfc,tsk(i,j))
         pd = prssfc/(1.0+qvsfc*reps)
@@ -664,12 +640,12 @@
       !c-c-c-c-c-c-c-c-c-c
 
       nvar = nvar+1
-      varname(nvar) = 'prssfc'
+      varname(nvar) = 'psfc'
       vardesc(nvar) = 'surface pressure'
       varunit(nvar) = 'Pa'
       varlvls(nvar) = 0
 
-      call     getavg2d(dum1(ib,jb,2),icrs,savg2d,ir,rr,navg,area,ruh,rvh)
+      call     getavg2d(psfc,icrs,savg2d,ir,rr,navg,area,ruh,rvh)
       call write2d(icrs,savg2d,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
 
       !c-c-c-c-c-c-c-c-c-c
@@ -718,6 +694,47 @@
 
       !c-c-c-c-c-c-c-c-c-c
 
+    if( idoles .and. cm1setup.eq.4 )then
+      nvar = nvar+1
+      varname(nvar) = 'cm0'
+      vardesc(nvar) = 'cm0'
+      varunit(nvar) = 'unitless'
+      varlvls(nvar) = 0
+
+      call     getavg2d(cm0,icrs,savg2d,ir,rr,navg,area,ruh,rvh)
+      call write2d(icrs,savg2d,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+    endif
+
+      !c-c-c-c-c-c-c-c-c-c
+
+    IF( (cm1setup.eq.2.or.cm1setup.eq.4) .and. horizturb.eq.1 )THEN
+      nvar = nvar+1
+      varname(nvar) = 'tlh'
+      vardesc(nvar) = 'horiz lengthscale for turbulence scheme'
+      varunit(nvar) = 'm'
+      varlvls(nvar) = 0
+
+      call     getavg2d(tlh,icrs,savg2d,ir,rr,navg,area,ruh,rvh)
+      call write2d(icrs,savg2d,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+    ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+    if( radopt.ge.2 )then
+
+      nvar = nvar+1
+      varname(nvar) = 'lwupt'
+      vardesc(nvar) = 'lw flux, upward, top of atmosphere (OLR)'
+      varunit(nvar) = 'W/m^2'
+      varlvls(nvar) = 0
+
+      call     getavg2d(lwupt(ibr,jbr),icrs,savg2d,ir,rr,navg,area,ruh,rvh)
+      call write2d(icrs,savg2d,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+    endif
+
+      !c-c-c-c-c-c-c-c-c-c
+
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -728,6 +745,7 @@
               ! dum3 = ur at s pts
               ! dum4 = vt at s pts
               ! dum5 = w at s pts
+              ! dum6 = wsp at s pts
 
         do k=1,nk
         do j=1,nj
@@ -784,6 +802,96 @@
       !c-c-c-c-c-c-c-c-c-c
 
         nvar = nvar+1
+        varname(nvar) = 'umax'
+        vardesc(nvar) = 'maximum radial wind speed'
+        varunit(nvar) = 'm/s'
+
+        call getmax3d(dum3,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'umin'
+        vardesc(nvar) = 'minimum radial wind speed'
+        varunit(nvar) = 'm/s'
+
+        call getmin3d(dum3,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'vmax'
+        vardesc(nvar) = 'maximum tangential wind speed'
+        varunit(nvar) = 'm/s'
+
+        call getmax3d(dum4,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'vmin'
+        vardesc(nvar) = 'minimum tangential wind speed'
+        varunit(nvar) = 'm/s'
+
+        call getmin3d(dum4,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      nvar = nvar+1
+      varname(nvar) = 'zinfl'
+      vardesc(nvar) = 'depth of inflow layer (u < -2 m/s)'
+      varunit(nvar) = 'm'
+      varlvls(nvar) = 0
+
+      ucrit = -2.0
+
+      savg2d = 0.0
+
+      do i=1,icrs
+        if( uavg(i,1).lt.ucrit )then
+          k = 1
+          do while( uavg(i,k).lt.ucrit .and. k.le.nk )
+            k = k+1
+          enddo
+          savg2d(i) = zh(1,1,k-1)+(zh(1,1,k)-zh(1,1,k-1))  &
+                                  *(    ucrit-uavg(i,k-1))  &
+                                  /(uavg(i,k)-uavg(i,k-1))
+        else
+          savg2d(i) = 0.0
+        endif
+      enddo
+
+      call write2d(icrs,savg2d,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'frac_in'
+        vardesc(nvar) = 'fraction of area with inflow'
+        varunit(nvar) = 'unitless'
+
+        call getfrac3d(dum3,icrs,savg2d,savg,ir,rr,navg,area,ruh,rvh,2)
+
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'frac_out'
+        vardesc(nvar) = 'fraction of area with outflow'
+        varunit(nvar) = 'unitless'
+
+        call getfrac3d(dum3,icrs,savg2d,savg,ir,rr,navg,area,ruh,rvh,1)
+
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
         varname(nvar) = 'm'
         vardesc(nvar) = 'angular momentum'
         varunit(nvar) = 'm^2/s'
@@ -818,6 +926,26 @@
 
       !c-c-c-c-c-c-c-c-c-c
 
+        nvar = nvar+1
+        varname(nvar) = 'wspmax'
+        vardesc(nvar) = 'maximum horizontal wind speed'
+        varunit(nvar) = 'm/s'
+
+        call getmax3d(dum6,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'wspmin'
+        vardesc(nvar) = 'minimum horizontal wind speed'
+        varunit(nvar) = 'm/s'
+
+        call getmin3d(dum6,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
         ! w interpolated to scalar levels:
         nvar = nvar+1
         varname(nvar) = 'winterp'
@@ -833,6 +961,29 @@
           wavg(i,k) = savg(i,k)
         enddo
         enddo
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( idoles .and. iusetke )THEN
+
+        ! tke interpolated to s levels:
+        nvar = nvar+1
+        varname(nvar) = 'tkeinterp'
+        vardesc(nvar) = 'subgrid tke (interp to s levels)'
+        varunit(nvar) = 'm2/s2'
+
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          dum7(i,j,k) = 0.5*(tke3d(i,j,k)+tke3d(i,j,k+1))
+        enddo
+        enddo
+        enddo
+
+        call getavg3d(dum7(ib,jb,kb),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
 
       !c-c-c-c-c-c-c-c-c-c
 
@@ -852,6 +1003,116 @@
           wsavg(i,k) = savg(i,k)
         enddo
         enddo
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        ! w at staggered level:
+        nvar = nvar+1
+        varname(nvar) = 'tmfu'
+        vardesc(nvar) = 'total upward mass flux'
+        varunit(nvar) = 'kg/s'
+        vargrid(nvar) = 's'   ! w levels
+
+      if( imoist.eq.0 )then
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = rho(i,j,k)*max(0.0,0.5*(w3d(i,j,k)+w3d(i,j,k+1)))*ruh(i)*rvh(j)*(dx*dy)
+        enddo
+        enddo
+        enddo
+      else
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = rho(i,j,k)*(1.0+q3d(i,j,k,nqv))*max(0.0,0.5*(w3d(i,j,k)+w3d(i,j,k+1)))*ruh(i)*rvh(j)*(dx*dy)
+        enddo
+        enddo
+        enddo
+      endif
+
+        call getsum3d(dum1(ib,jb,kb),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        ! w at staggered level:
+        nvar = nvar+1
+        varname(nvar) = 'tmfd'
+        vardesc(nvar) = 'total downward mass flux'
+        varunit(nvar) = 'kg/s'
+        vargrid(nvar) = 's'   ! w levels
+
+      if( imoist.eq.0 )then
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = rho(i,j,k)*min(0.0,0.5*(w3d(i,j,k)+w3d(i,j,k+1)))*ruh(i)*rvh(j)*(dx*dy)
+        enddo
+        enddo
+        enddo
+      else
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = rho(i,j,k)*(1.0+q3d(i,j,k,nqv))*min(0.0,0.5*(w3d(i,j,k)+w3d(i,j,k+1)))*ruh(i)*rvh(j)*(dx*dy)
+        enddo
+        enddo
+        enddo
+      endif
+
+        call getsum3d(dum1(ib,jb,kb),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        ! w at staggered level:
+        nvar = nvar+1
+        varname(nvar) = 'wmax'
+        vardesc(nvar) = 'maximum vertical velocity'
+        varunit(nvar) = 'm/s'
+        vargrid(nvar) = 'w'   ! w levels
+
+        call getmax3d(w3d(ib,jb,kb),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        ! w at staggered level:
+        nvar = nvar+1
+        varname(nvar) = 'wmin'
+        vardesc(nvar) = 'minimum vertical velocity'
+        varunit(nvar) = 'm/s'
+        vargrid(nvar) = 'w'   ! w levels
+
+        call getmin3d(w3d(ib,jb,kb),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        ! fraction of ascending air
+        nvar = nvar+1
+        varname(nvar) = 'fracup'
+        vardesc(nvar) = 'fraction of area that is ascending'
+        varunit(nvar) = 'unitless'
+        vargrid(nvar) = 'w'   ! w levels
+
+        call getfrac3d(w3d(ib,jb,kb),icrs,savg2d,savg,ir,rr,navg,area,ruh,rvh,1)
+
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        ! fraction of descending air
+        nvar = nvar+1
+        varname(nvar) = 'fracdn'
+        vardesc(nvar) = 'fraction of area that is descending'
+        varunit(nvar) = 'unitless'
+        vargrid(nvar) = 'w'   ! w levels
+
+        call getfrac3d(w3d(ib,jb,kb),icrs,savg2d,savg,ir,rr,navg,area,ruh,rvh,2)
+
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
 
       !c-c-c-c-c-c-c-c-c-c
 
@@ -971,6 +1232,46 @@
 
       !c-c-c-c-c-c-c-c-c-c
 
+      IF( imoist.eq.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'rh95frac'
+        vardesc(nvar) = 'fraction of points that have rh >= 95'
+        varunit(nvar) = 'nondimensional'
+
+        dum7 = 0.0
+        dum8 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( dum2(i,j,k).ge.0.95 ) dum7(i,j,k) = 1.0
+            if( dum2(i,j,k).ge.0.99 ) dum8(i,j,k) = 1.0
+          enddo
+          enddo
+          enddo
+
+        call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'rh99frac'
+        vardesc(nvar) = 'fraction of points that have rh >= 99'
+        varunit(nvar) = 'nondimensional'
+
+        call getavg3d(dum8,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
       IF( imoist.eq.1 .and. iice.ge.1 )THEN
 
         nvar = nvar+1
@@ -1084,7 +1385,7 @@
 
       !c-c-c-c-c-c-c-c-c-c
 
-      IF( imoist.eq.1 .and. output_dbz.eq.1 )THEN
+      IF( imoist.eq.1 .and. output_dbz.eq.1 .and. qd_dbz.ge.1 )THEN
 
         nvar = nvar+1
         varname(nvar) = 'dbz'
@@ -1095,6 +1396,408 @@
         call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
 
       ENDIF
+
+  !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      doit = .true.
+
+      dorturb:  &
+      if( doit )then
+        IF( cm1setup.eq.4 )THEN
+
+      !c-c-c-c-c-c-c-c-c-c
+
+          nvar = nvar+1
+          varname(nvar) = 'upup'
+          vardesc(nvar) = "<u'u'>, resolved rad vel var"
+          varunit(nvar) = 'm2/s2'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = (dum3(i,j,k)-uavg(ir(i,j),k))**2
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+          nvar = nvar+1
+          varname(nvar) = 'vpvp'
+          vardesc(nvar) = "<v'v'>, resolved tang vel var"
+          varunit(nvar) = 'm2/s2'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = (dum4(i,j,k)-vavg(ir(i,j),k))**2
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+          nvar = nvar+1
+          varname(nvar) = 'wpwp'
+          vardesc(nvar) = "<w'w'>, resolved tang vel var"
+          varunit(nvar) = 'm2/s2'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = (dum5(i,j,k)-wavg(ir(i,j),k))**2
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+          nvar = nvar+1
+          varname(nvar) = 'upvp'
+          vardesc(nvar) = "<u'v'>"
+          varunit(nvar) = 'm2/s2'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = (dum3(i,j,k)-uavg(ir(i,j),k))*(dum4(i,j,k)-vavg(ir(i,j),k))
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+          nvar = nvar+1
+          varname(nvar) = 'upwp'
+          vardesc(nvar) = "<u'w'>"
+          varunit(nvar) = 'm2/s2'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = (dum3(i,j,k)-uavg(ir(i,j),k))*(dum5(i,j,k)-wavg(ir(i,j),k))
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+          nvar = nvar+1
+          varname(nvar) = 'vpwp'
+          vardesc(nvar) = "<v'w'>"
+          varunit(nvar) = 'm2/s2'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = (dum4(i,j,k)-vavg(ir(i,j),k))*(dum5(i,j,k)-wavg(ir(i,j),k))
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+          nvar = nvar+1
+          varname(nvar) = 'wptp'
+          vardesc(nvar) = "<w't'>"
+          varunit(nvar) = 'm/s K'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = ((th0(i,j,k)-thavg(ir(i,j),k))+th3d(i,j,k))*(dum5(i,j,k)-wavg(ir(i,j),k))
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        IF(imoist.eq.1)THEN
+
+          nvar = nvar+1
+          varname(nvar) = 'wpqp'
+          vardesc(nvar) = "<w'q'>"
+          varunit(nvar) = 'm/s kg/kg'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = (q3d(i,j,k,nqv)-qvavg(ir(i,j),k))*(dum5(i,j,k)-wavg(ir(i,j),k))
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+        ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+          nvar = nvar+1
+          varname(nvar) = 'tptp'
+          vardesc(nvar) = "<t't'>"
+          varunit(nvar) = 'K^2'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = ((th0(i,j,k)-thavg(ir(i,j),k))+th3d(i,j,k))**2
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        IF(imoist.eq.1)THEN
+
+          nvar = nvar+1
+          varname(nvar) = 'qpqp'
+          vardesc(nvar) = "<q'q'>"
+          varunit(nvar) = 'kg^2/kg^2'
+
+          dum7 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+              dum7(i,j,k) = (q3d(i,j,k,nqv)-qvavg(ir(i,j),k))**2
+            endif
+          enddo
+          enddo
+          enddo
+
+          call getavg3d(dum7,icrs,savg,ir,rr,navg,area,ruh,rvh)
+          call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+        ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        ENDIF
+      endif  dorturb
+
+  !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      dovt = .true.
+
+      IF( imoist.eq.1 .and. dovt .and. qd_vtc.ge.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'vtc'
+        vardesc(nvar) = 'vtc'
+        varunit(nvar) = 'm/s'
+
+        call getavg3d(qdiag(ibdq,jbdq,kbdq,qd_vtc),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. dovt .and. qd_vtr.ge.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'vtr'
+        vardesc(nvar) = 'vtr'
+        varunit(nvar) = 'm/s'
+
+        call getavg3d(qdiag(ibdq,jbdq,kbdq,qd_vtr),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. dovt .and. qd_vti.ge.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'vti'
+        vardesc(nvar) = 'vti'
+        varunit(nvar) = 'm/s'
+
+        call getavg3d(qdiag(ibdq,jbdq,kbdq,qd_vti),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. dovt .and. qd_vts.ge.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'vts'
+        vardesc(nvar) = 'vts'
+        varunit(nvar) = 'm/s'
+
+        call getavg3d(qdiag(ibdq,jbdq,kbdq,qd_vts),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. dovt .and. qd_vtg.ge.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'vtg'
+        vardesc(nvar) = 'vtg'
+        varunit(nvar) = 'm/s'
+
+        call getavg3d(qdiag(ibdq,jbdq,kbdq,qd_vtg),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. (ptype.eq.3.or.ptype.eq.5) .and. radopt.eq.2 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'effc'
+        vardesc(nvar) = 'effc'
+        varunit(nvar) = 'm'
+
+        call getavg3d(effc(ibr,jbr,kbr),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. (ptype.eq.3.or.ptype.eq.5) .and. radopt.eq.2 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'effi'
+        vardesc(nvar) = 'effi'
+        varunit(nvar) = 'm'
+
+        call getavg3d(effi(ibr,jbr,kbr),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. (ptype.eq.3.or.ptype.eq.5) .and. radopt.eq.2 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'effr'
+        vardesc(nvar) = 'effr'
+        varunit(nvar) = 'm'
+
+        call getavg3d(effr(ibr,jbr,kbr),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. (ptype.eq.3.or.ptype.eq.5) .and. radopt.eq.2 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'effg'
+        vardesc(nvar) = 'effg'
+        varunit(nvar) = 'm'
+
+        call getavg3d(effg(ibr,jbr,kbr),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. (ptype.eq.3.or.ptype.eq.5) .and. radopt.eq.2 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'effs'
+        vardesc(nvar) = 'effs'
+        varunit(nvar) = 'm'
+
+        call getavg3d(effs(ibr,jbr,kbr),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 .and. (ptype.eq.3.or.ptype.eq.5) .and. radopt.eq.2 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'effis'
+        vardesc(nvar) = 'effis'
+        varunit(nvar) = 'm'
+
+        call getavg3d(effis(ibr,jbr,kbr),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
 
       !c-c-c-c-c-c-c-c-c-c
 
@@ -1225,6 +1928,46 @@
 
       !c-c-c-c-c-c-c-c-c-c
 
+      IF( imoist.eq.1 .and. qd_dbz.ge.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'dbz20frac'
+        vardesc(nvar) = 'fraction of points that have dbz >= 20'
+        varunit(nvar) = 'nondimensional'
+
+        dum1 = 0.0
+        dum2 = 0.0
+
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            if( qdiag(i,j,k,qd_dbz).ge.20.0 ) dum1(i,j,k) = 1.0
+            if( qdiag(i,j,k,qd_dbz).ge.40.0 ) dum2(i,j,k) = 1.0
+          enddo
+          enddo
+          enddo
+
+        call getavg3d(dum1,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( imoist.eq.1 )THEN
+
+        nvar = nvar+1
+        varname(nvar) = 'dbz40frac'
+        vardesc(nvar) = 'fraction of points that have dbz >= 40'
+        varunit(nvar) = 'nondimensional'
+
+        call getavg3d(dum2,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
       radout:  &
       IF( radopt.ge.1 )THEN
 
@@ -1281,7 +2024,67 @@
 
       !c-c-c-c-c-c-c-c-c-c
 
-      IF( cm1setup.eq.1 .and. iusetke )THEN
+!      IF( idoles .and. iusetke )THEN
+!
+!        nvar = nvar+1
+!        varname(nvar) = 'cme'
+!        vardesc(nvar) = 'parameter in subgrid TKE scheme'
+!        varunit(nvar) = 'unitless'
+!        vargrid(nvar) = 'w'
+!
+!        call getavg3d(cme(ibc,jbc,kbc),icrs,savg,ir,rr,navg,area,ruh,rvh)
+!        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+!
+!      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+!      IF( idoles .and. iusetke )THEN
+!
+!        nvar = nvar+1
+!        varname(nvar) = 'csm'
+!        vardesc(nvar) = 'parameter in subgrid TKE scheme'
+!        varunit(nvar) = 'unitless'
+!        vargrid(nvar) = 'w'
+!
+!        call getavg3d(csm(ibc,jbc,kbc),icrs,savg,ir,rr,navg,area,ruh,rvh)
+!        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+!
+!      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+!      IF( idoles .and. iusetke )THEN
+!
+!        nvar = nvar+1
+!        varname(nvar) = 'ce1'
+!        vardesc(nvar) = 'parameter in subgrid TKE scheme'
+!        varunit(nvar) = 'unitless'
+!        vargrid(nvar) = 'w'
+!
+!        call getavg3d(ce1(ibc,jbc,kbc),icrs,savg,ir,rr,navg,area,ruh,rvh)
+!        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+!
+!      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+!      IF( idoles .and. iusetke )THEN
+!
+!        nvar = nvar+1
+!        varname(nvar) = 'ce2'
+!        vardesc(nvar) = 'parameter in subgrid TKE scheme'
+!        varunit(nvar) = 'unitless'
+!        vargrid(nvar) = 'w'
+!
+!        call getavg3d(ce2(ibc,jbc,kbc),icrs,savg,ir,rr,navg,area,ruh,rvh)
+!        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+!
+!      ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      IF( idoles .and. iusetke )THEN
 
         nvar = nvar+1
         varname(nvar) = 'tke'
@@ -1357,6 +2160,31 @@
 
       endif
       ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      if( sgsmodel.eq.4 )then
+
+        nvar = nvar+1
+        varname(nvar) = 'kmw'
+        vardesc(nvar) = 'kmw'
+        varunit(nvar) = 'm^2/s'
+        vargrid(nvar) = 'w'
+
+        dum1 = 0.0
+
+        do k=1,ntwk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = kmwk(i,j,k)
+        enddo
+        enddo
+        enddo
+
+        call getavg3d(dum1,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      endif
 
       !c-c-c-c-c-c-c-c-c-c
 
@@ -1467,6 +2295,28 @@
         call getavg3d(xkzm(ibb,jbb,kbb),icrs,savg,ir,rr,navg,area,ruh,rvh)
         call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
 
+        !--------!
+
+        nvar = nvar+1
+        varname(nvar) = 'el_pbl'
+        vardesc(nvar) = 'length scale in MYNN'
+        varunit(nvar) = 'm'
+        vargrid(nvar) = 'w'
+
+        call getavg3d(el_pbl(ibmynn,jbmynn,kbmynn),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+        !--------!
+
+        nvar = nvar+1
+        varname(nvar) = 'edmf_a'
+        vardesc(nvar) = 'edmf_a'
+        varunit(nvar) = 'n.d.'
+        vargrid(nvar) = 's'
+
+        call getavg3d(edmf_a(ibmynn,jbmynn,kbmynn),icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
       ENDIF
 
       !c-c-c-c-c-c-c-c-c-c
@@ -1509,6 +2359,137 @@
         call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
 
       ENDIF
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      sgshdiag:  &
+      IF( sgsmodel.ge.1 .and. ud_hturb.ge.1 .and. vd_hturb.ge.1 )THEN
+
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = udiag(i,j,k,ud_hturb)
+          dum2(i,j,k) = vdiag(i,j,k,vd_hturb)
+          if( abs(rr(i,j)).lt.1.0e-4 )then
+            dum3(i,j,k)=0.0
+            dum4(i,j,k)=0.0
+          else
+            dum3(i,j,k)=dum2(i,j,k)*sin(angle(i,j))+dum1(i,j,k)*cos(angle(i,j))
+            dum4(i,j,k)=dum2(i,j,k)*cos(angle(i,j))-dum1(i,j,k)*sin(angle(i,j))
+          endif
+        enddo
+        enddo
+        enddo
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'urhturb'
+        vardesc(nvar) = 'sgsmodel tendency: radial velocity'
+        varunit(nvar) = 'm/s/s'
+
+        call getavg3d(dum3,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'vthturb'
+        vardesc(nvar) = 'sgsmodel tendency: tangential velocity'
+        varunit(nvar) = 'm/s/s'
+
+        call getavg3d(dum4,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF  sgshdiag
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      sgsvdiag:  &
+      IF( sgsmodel.ge.1 .and. ud_vturb.ge.1 .and. vd_vturb.ge.1 )THEN
+
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = udiag(i,j,k,ud_vturb)
+          dum2(i,j,k) = vdiag(i,j,k,vd_vturb)
+          if( abs(rr(i,j)).lt.1.0e-4 )then
+            dum3(i,j,k)=0.0
+            dum4(i,j,k)=0.0
+          else
+            dum3(i,j,k)=dum2(i,j,k)*sin(angle(i,j))+dum1(i,j,k)*cos(angle(i,j))
+            dum4(i,j,k)=dum2(i,j,k)*cos(angle(i,j))-dum1(i,j,k)*sin(angle(i,j))
+          endif
+        enddo
+        enddo
+        enddo
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'urvturb'
+        vardesc(nvar) = 'sgsmodel tendency: radial velocity'
+        varunit(nvar) = 'm/s/s'
+
+        call getavg3d(dum3,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'vtvturb'
+        vardesc(nvar) = 'sgsmodel tendency: tangential velocity'
+        varunit(nvar) = 'm/s/s'
+
+        call getavg3d(dum4,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF  sgsvdiag
+
+      !c-c-c-c-c-c-c-c-c-c
+
+      pblt:  &
+      IF( use_pbl )THEN
+
+        do k=1,nk
+        do j=1,nj
+        do i=1,ni
+          dum1(i,j,k) = upten(i,j,k)
+          dum2(i,j,k) = vpten(i,j,k)
+          if( abs(rr(i,j)).lt.1.0e-4 )then
+            dum3(i,j,k)=0.0
+            dum4(i,j,k)=0.0
+          else
+            dum3(i,j,k)=dum2(i,j,k)*sin(angle(i,j))+dum1(i,j,k)*cos(angle(i,j))
+            dum4(i,j,k)=dum2(i,j,k)*cos(angle(i,j))-dum1(i,j,k)*sin(angle(i,j))
+          endif
+        enddo
+        enddo
+        enddo
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'urpten'
+        vardesc(nvar) = 'PBL tendency: radial velocity'
+        varunit(nvar) = 'm/s/s'
+
+        call getavg3d(dum3,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      !c-c-c-c-c-c-c-c-c-c
+
+        nvar = nvar+1
+        varname(nvar) = 'vtpten'
+        vardesc(nvar) = 'PBL tendency: tangential velocity'
+        varunit(nvar) = 'm/s/s'
+
+        call getavg3d(dum4,icrs,savg,ir,rr,navg,area,ruh,rvh)
+        call write3d(icrs,savg,arecs,arecw,nvar,varname,vardesc,varunit,vargrid)
+
+      ENDIF  pblt
+
+      !c-c-c-c-c-c-c-c-c-c
 
         !--------!
 
@@ -1771,22 +2752,30 @@
           write(66,101) string
           write(66,102)
           if( nfile.eq.1 )then
-            write(66,103) trim(cm1version)
+            if( outunits.eq.2 )then
+              write(66,113) trim(cm1version)
+            else
+              write(66,103) trim(cm1version)
+            endif
           elseif( nfile.eq.2 )then
-            write(66,203) trim(cm1version)
+            if( outunits.eq.2 )then
+              write(66,213) trim(cm1version)
+            else
+              write(66,203) trim(cm1version)
+            endif
           endif
           write(66,104) grads_undef
-          write(66,105) icrs,0.001*0.5*ddr,0.001*ddr
+          write(66,105) icrs,outunitconv*0.5*ddr,outunitconv*ddr
           write(66,106)
           if( nfile.eq.1 )then
             write(66,107) nk
             do k=1,nk
-              write(66,217) 0.001*zh(1,1,k)
+              write(66,217) outunitconv*zh(1,1,k)
             enddo
           elseif( nfile.eq.2 )then
             write(66,107) nk+1
             do k=1,nk+1
-              write(66,217) 0.001*zf(1,1,k)
+              write(66,217) outunitconv*zf(1,1,k)
             enddo
           endif
           write(66,108) nwritea
@@ -1833,11 +2822,15 @@
  102    format('options template')
  103    format('title CM1 azimuthally averaged output on scalar levels, using version ',a,'; x dim is radius (km), z dim is height ASL (km); time is generic, see variable mtime for actual times')
  203    format('title CM1 azimuthally averaged output on w levels, using version ',a,'; x dim is radius (km), z dim is height ASL (km); time is generic, see variable mtime for actual times')
+ 113    format('title CM1 azimuthally averaged output on scalar levels, using version ',a,'; x dim is radius (meters), z dim is height ASL (meters); time is generic, see variable mtime for actual times')
+ 213    format('title CM1 azimuthally averaged output on w levels, using version ',a,'; x dim is radius (meters), z dim is height ASL (meters); time is generic, see variable mtime for actual times')
  104    format('undef ',f10.1)
- 105    format('xdef ',i6,' linear ',f13.6,1x,f13.6)
+! 105    format('xdef ',i6,' linear ',f13.6,1x,f13.6)
+ 105    format('xdef ',i6,' linear ',es14.6e2,1x,es14.6e2)
  106    format('ydef 1 linear 0 1')
  107    format('zdef ',i6,' levels')
- 217    format(2x,f13.6)
+! 217    format(2x,f13.6)
+ 217    format(2x,es14.6e2)
  108    format('tdef ',i10,' linear 00:00Z01JAN0001 1YR')
  109    format('vars ',i6)
  110    format(a12,2x,i6,' 99 ',a40,1x,a16)
@@ -1880,21 +2873,24 @@
     real, intent(in), dimension(ib:ie,jb:je) :: s2d
     integer, intent(in) :: icrs
     double precision, intent(inout), dimension(icrs) :: savg2d
-    integer, intent(in), dimension(ni,nj) :: ir
-    real, intent(in), dimension(ni,nj) :: rr
+    integer, intent(in), dimension(ib:ie,jb:je) :: ir
+    real, intent(in), dimension(ib:ie,jb:je) :: rr
     integer, intent(in), dimension(icrs) :: navg
     double precision, intent(in), dimension(icrs) :: area
     real, intent(in), dimension(ib:ie) :: ruh
     real, intent(in), dimension(jb:je) :: rvh
 
     integer :: i,j
+    real :: ds
+
+    ds = dx*dy
 
     savg2d = 0.0
 
     do j=1,nj
     do i=1,ni
       if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
-        savg2d(ir(i,j)) = savg2d(ir(i,j)) + s2d(i,j)*dx*dy*ruh(i)*rvh(j)
+        savg2d(ir(i,j)) = savg2d(ir(i,j)) + s2d(i,j)*(ds*(ruh(i)*rvh(j)))
       endif
     enddo
     enddo
@@ -1930,14 +2926,17 @@
     real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: s
     integer, intent(in) :: icrs
     double precision, dimension(icrs,nk+1) :: savg
-    integer, intent(in), dimension(ni,nj) :: ir
-    real, intent(in), dimension(ni,nj) :: rr
+    integer, intent(in), dimension(ib:ie,jb:je) :: ir
+    real, intent(in), dimension(ib:ie,jb:je) :: rr
     integer, intent(in), dimension(icrs) :: navg
     double precision, intent(in), dimension(icrs) :: area
     real, intent(in), dimension(ib:ie) :: ruh
     real, intent(in), dimension(jb:je) :: rvh
 
     integer :: i,j,k
+    real :: ds
+
+    ds = dx*dy
 
     savg = 0.0
 
@@ -1945,7 +2944,7 @@
     do j=1,nj
     do i=1,ni
       if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
-        savg(ir(i,j),k) = savg(ir(i,j),k) + s(i,j,k)*dx*dy*ruh(i)*rvh(j)
+        savg(ir(i,j),k) = savg(ir(i,j),k) + s(i,j,k)*(ds*(ruh(i)*rvh(j)))
       endif
     enddo
     enddo
@@ -1966,6 +2965,234 @@
     enddo
 
     end subroutine getavg3d
+
+
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+
+    subroutine getsum3d(s,icrs,savg,ir,rr,navg,area,ruh,rvh)
+    use input
+    use constants , only : grads_undef
+#ifdef MPI
+    use mpi
+#endif
+    implicit none
+
+    real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: s
+    integer, intent(in) :: icrs
+    double precision, dimension(icrs,nk+1) :: savg
+    integer, intent(in), dimension(ib:ie,jb:je) :: ir
+    real, intent(in), dimension(ib:ie,jb:je) :: rr
+    integer, intent(in), dimension(icrs) :: navg
+    double precision, intent(in), dimension(icrs) :: area
+    real, intent(in), dimension(ib:ie) :: ruh
+    real, intent(in), dimension(jb:je) :: rvh
+
+    integer :: i,j,k
+
+    savg = 0.0
+
+    do k=1,nk+1
+    do j=1,nj
+    do i=1,ni
+      if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+        savg(ir(i,j),k) = savg(ir(i,j),k) + s(i,j,k)
+      endif
+    enddo
+    enddo
+    enddo
+
+#ifdef MPI
+    call MPI_ALLREDUCE(MPI_IN_PLACE,savg,icrs*(nk+1),MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+#endif
+
+    do k=1,nk+1
+    do i=1,icrs
+      if( navg(i).eq.0 )then
+        savg(i,k) = grads_undef
+      endif
+    enddo
+    enddo
+
+    end subroutine getsum3d
+
+
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+
+    subroutine getmax3d(s,icrs,savg,ir,rr,navg,area,ruh,rvh)
+    use input
+    use constants , only : grads_undef
+#ifdef MPI
+    use mpi
+#endif
+    implicit none
+
+    real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: s
+    integer, intent(in) :: icrs
+    double precision, dimension(icrs,nk+1) :: savg
+    integer, intent(in), dimension(ib:ie,jb:je) :: ir
+    real, intent(in), dimension(ib:ie,jb:je) :: rr
+    integer, intent(in), dimension(icrs) :: navg
+    double precision, intent(in), dimension(icrs) :: area
+    real, intent(in), dimension(ib:ie) :: ruh
+    real, intent(in), dimension(jb:je) :: rvh
+
+    integer :: i,j,k
+
+    savg = -1.0e30
+
+    do k=1,nk+1
+    do j=1,nj
+    do i=1,ni
+      if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+        savg(ir(i,j),k) = max( savg(ir(i,j),k) , s(i,j,k) )
+      endif
+    enddo
+    enddo
+    enddo
+
+#ifdef MPI
+    call MPI_ALLREDUCE(MPI_IN_PLACE,savg,icrs*(nk+1),MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,ierr)
+#endif
+
+    do k=1,nk+1
+    do i=1,icrs
+      if( navg(i).eq.0 )then
+        savg(i,k) = grads_undef
+      endif
+    enddo
+    enddo
+
+    end subroutine getmax3d
+
+
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+
+    subroutine getmin3d(s,icrs,savg,ir,rr,navg,area,ruh,rvh)
+    use input
+    use constants , only : grads_undef
+#ifdef MPI
+    use mpi
+#endif
+    implicit none
+
+    real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: s
+    integer, intent(in) :: icrs
+    double precision, dimension(icrs,nk+1) :: savg
+    integer, intent(in), dimension(ib:ie,jb:je) :: ir
+    real, intent(in), dimension(ib:ie,jb:je) :: rr
+    integer, intent(in), dimension(icrs) :: navg
+    double precision, intent(in), dimension(icrs) :: area
+    real, intent(in), dimension(ib:ie) :: ruh
+    real, intent(in), dimension(jb:je) :: rvh
+
+    integer :: i,j,k
+
+    savg = 1.0e30
+
+    do k=1,nk+1
+    do j=1,nj
+    do i=1,ni
+      if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+        savg(ir(i,j),k) = min( savg(ir(i,j),k) , s(i,j,k) )
+      endif
+    enddo
+    enddo
+    enddo
+
+#ifdef MPI
+    call MPI_ALLREDUCE(MPI_IN_PLACE,savg,icrs*(nk+1),MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,ierr)
+#endif
+
+    do k=1,nk+1
+    do i=1,icrs
+      if( navg(i).eq.0 )then
+        savg(i,k) = grads_undef
+      endif
+    enddo
+    enddo
+
+    end subroutine getmin3d
+
+
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+
+    subroutine getfrac3d(s,icrs,savg2d,savg,ir,rr,navg,area,ruh,rvh,op)
+    use input
+    use constants , only : grads_undef
+#ifdef MPI
+    use mpi
+#endif
+    implicit none
+
+    real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: s
+    integer, intent(in) :: icrs
+    double precision, dimension(icrs) :: savg2d
+    double precision, dimension(icrs,nk+1) :: savg
+    integer, intent(in), dimension(ib:ie,jb:je) :: ir
+    real, intent(in), dimension(ib:ie,jb:je) :: rr
+    integer, intent(in), dimension(icrs) :: navg
+    double precision, intent(in), dimension(icrs) :: area
+    real, intent(in), dimension(ib:ie) :: ruh
+    real, intent(in), dimension(jb:je) :: rvh
+    integer, intent(in) :: op     !  1 = use values >= 0
+                                  !  2 = use values < 0
+
+    integer :: i,j,k
+
+    savg2d = 0.0
+    savg = 0.0
+
+    do j=1,nj
+    do i=1,ni
+      if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+        savg2d(ir(i,j)) = savg2d(ir(i,j)) + dx*dy*ruh(i)*rvh(j)
+      endif
+    enddo
+    enddo
+
+    do k=1,nk+1
+    do j=1,nj
+    do i=1,ni
+      if( ir(i,j).ge.1 .and. ir(i,j).le.icrs )then
+      if( op.eq.1 .and. s(i,j,k).ge.0.0 )then
+        savg(ir(i,j),k) = savg(ir(i,j),k) + dx*dy*ruh(i)*rvh(j)
+      endif
+      if( op.eq.2 .and. s(i,j,k).lt.0.0 )then
+        savg(ir(i,j),k) = savg(ir(i,j),k) + dx*dy*ruh(i)*rvh(j)
+      endif
+      endif
+    enddo
+    enddo
+    enddo
+
+#ifdef MPI
+    call MPI_ALLREDUCE(MPI_IN_PLACE,savg2d,icrs     ,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+    call MPI_ALLREDUCE(MPI_IN_PLACE,savg,icrs*(nk+1),MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+#endif
+
+    do k=1,nk+1
+    do i=1,icrs
+      if( navg(i).eq.0 )then
+        savg(i,k) = grads_undef
+      else
+        savg(i,k) = savg(i,k)/max(1.0e-20,savg2d(i))
+      endif
+    enddo
+    enddo
+
+    end subroutine getfrac3d
 
 
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -2116,7 +3343,7 @@
 
 
     subroutine getcenter(nstep,mtime,rddr,xh,yh,zh,xfref,yfref,ugr,utmp,vgr,vtmp,pp3d,  &
-                         nwritea,icenter,jcenter,xcenter,ycenter)
+                         nwritea,icenter,jcenter,xcenter,ycenter,domainlocx,domainlocy)
     use input
     use constants
 #ifdef NETCDF
@@ -2148,6 +3375,7 @@
       real, intent(in),    dimension(ib:ie,jb:je,kb:ke) :: pp3d
       integer, intent(inout) :: nwritea,icenter,jcenter
       real, intent(inout) :: xcenter,ycenter
+      double precision, intent(in) :: domainlocx,domainlocy
 
     integer :: i,j,k,ii,jj,ir,proc,jfoo,arecs,arecw,irec1,nr,kmax,nloop
     integer :: ictest,jctest,imin,imax,jmin,jmax,ninc
@@ -2173,8 +3401,8 @@
 
              ! assume rmw <= rcrit
              ! assume zmw <= zcrit
-      real, parameter :: rcrit = 100000.0       ! max possible rmw (m)
-      real, parameter :: zcrit =   2000.0       ! max possible zmw (m)
+      real, parameter :: rcrit = 150000.0       ! max possible rmw (m)
+      real, parameter :: zcrit =   4000.0       ! max possible zmw (m)
                                                 ! (Note:  code uses last known location 
                                                 !  of storm center as a starting point)
 
@@ -2190,7 +3418,7 @@
       real, dimension(2) :: valmin
 #endif
 
-      integer, parameter :: nvars = 8
+      integer, parameter :: nvars = 10
 
 !-----------------------------------------------------------------------
 
@@ -2262,7 +3490,7 @@
       nr = int( rcrit*rddr + 1 )
 
       kmax = 0
-      do while( zh(1,1,kmax).le.zcrit )
+      do while( zh(1,1,kmax).le.zcrit .and. kmax.lt.nk )
         kmax = kmax+1
       enddo
 
@@ -2339,6 +3567,7 @@
       !   (set ninc=2 to search every other gridpoint)
       !   (set ninc=3 to search every third gridpoint)
       ninc  =  1
+!!!      ninc  =  4
 
 !    if( nstep.eq.0 )then
 !      ! search entire domain:
@@ -2526,6 +3755,10 @@
         irec1=irec1+1
         write(67,rec=irec1) mostz
         irec1=irec1+1
+        write(67,rec=irec1) sngl(domainlocx)
+        irec1=irec1+1
+        write(67,rec=irec1) sngl(domainlocy)
+        irec1=irec1+1
 
         close(unit=67)
 
@@ -2548,14 +3781,16 @@
       write(50,206)
       write(50,207) nwritea
       write(50,208) nvars
-      write(50,209) 'mtime   ','model time (seconds since beginning of simulation)'
-      write(50,209) 'icenter ','i value of center point                           '
-      write(50,209) 'jcenter ','j value of center point                           '
-      write(50,209) 'xcenter ','x (m) value of center point                       '
-      write(50,209) 'ycenter ','y (m) value of center point                       '
-      write(50,209) 'vmax    ','max azimuthally averaged tangential velocity (m/s)'
-      write(50,209) 'rmax    ','radius of Vmax (m)                                '
-      write(50,209) 'zmax    ','height (m ASL) of Vmax                            '
+      write(50,209) 'mtime       ','model time (seconds since beginning of simulation)'
+      write(50,209) 'icenter     ','i value of center point                           '
+      write(50,209) 'jcenter     ','j value of center point                           '
+      write(50,209) 'xcenter     ','x (m) value of center point                       '
+      write(50,209) 'ycenter     ','y (m) value of center point                       '
+      write(50,209) 'vmax        ','max azimuthally averaged tangential velocity (m/s)'
+      write(50,209) 'rmax        ','radius of Vmax (m)                                '
+      write(50,209) 'zmax        ','height (m ASL) of Vmax                            '
+      write(50,209) 'domainlocx  ','x location of (center of) domain (m)              '
+      write(50,209) 'domainlocy  ','y location of (center of) domain (m)              '
       write(50,210)
       close(unit=50)
 202   format('title stats and info for CM1 azimuthally averaged output; using version ',a,'; time is generic, see variable mtime for actual times')
@@ -2565,7 +3800,7 @@
 206   format('zdef 1 linear 0.0 1.0')
 207   format('tdef ',i10,' linear 00:00Z01JAN0001 1YR')
 208   format('vars ',i4)
-209   format(a8,' 0 99 ',a50)
+209   format(a12,' 0 99 ',a50)
 210   format('endvars')
 
 !-----------------------------------------------------------------------
@@ -2601,7 +3836,7 @@
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 
-      subroutine getpsmth(xh,yh,pp3d,dum1,xfref,yfref,icenter,jcenter,xcenter,ycenter,psmth)
+      subroutine getpsmth(xh,yh,sigma,pp3d,dum1,xfref,yfref,icenter,jcenter,xcenter,ycenter,psmth)
 
       use input
       use constants
@@ -2614,6 +3849,7 @@
 
       real, intent(in), dimension(ib:ie) :: xh
       real, intent(in), dimension(jb:je) :: yh
+      real, intent(in), dimension(kb:ke) :: sigma
       real, intent(in), dimension(ib:ie,jb:je,kb:ke) :: pp3d
       real, intent(inout), dimension(ib:ie,jb:je,kb:ke) :: dum1
       real, intent(in), dimension(1-ngxy:nx+ngxy+1) :: xfref
@@ -2622,8 +3858,8 @@
       real, intent(inout) :: xcenter,ycenter
       real, intent(inout), dimension(ib:ie,jb:je) :: psmth
 
-      integer :: i,j,n,ipmin,jpmin
-      real :: rmin
+      integer :: i,j,k,n,ipmin,jpmin,kval
+      real :: rmin,minval,zref
       real, dimension(cmp,jmp) :: west,newwest,east,neweast
       real, dimension(imp,cmp) :: south,newsouth,north,newnorth
       integer, dimension(8) :: reqs
@@ -2635,9 +3871,33 @@
 
     !---------------------------------------
 
+    ! 210228: specify level to use
+    ! (default is surface)
+
+      zref = 0.0    ! level (ASL) to use
+
+      minval = 1.0e30
+
+      if( zref.gt.smeps )then
+        do k=1,nk
+          if( abs(sigma(k)-zref).lt.minval )then
+            minval = abs(sigma(k)-zref)
+            kval = k
+          endif
+        enddo
+      else
+        kval = 1
+      endif
+
+!!!      kval = nint(var2)
+
+      if(myid.eq.0) print *,'  kval,zval = ',kval,sigma(kval)
+
+    !---------------------------------------
+
       do j=1,nj
       do i=1,ni
-        dum1(i,j,1) = pp3d(i,j,1)
+        dum1(i,j,1) = pp3d(i,j,kval)
       enddo
       enddo
 
@@ -2852,7 +4112,8 @@
 
       subroutine update_adapt_move(nstep,mtime,xh,yh,xfref,yfref,ug,vg,psmth,     &
                                    dum1,pp3d,u0,ua,u3d,v0,va,v3d,mvrec,nwritemv,  &
-                                   icenter,jcenter,xcenter,ycenter)
+                                   icenter,jcenter,xcenter,ycenter,               &
+                                   domainlocx,domainlocy)
       use input
       use constants
 #ifdef NETCDF
@@ -2875,9 +4136,10 @@
       integer, intent(in)    :: nwritemv
       integer, intent(inout) :: icenter,jcenter
       real, intent(inout) :: xcenter,ycenter
+      double precision, intent(in) :: domainlocx,domainlocy
 
-      integer :: k,icfoo,jcfoo
-      real :: xcfoo,ycfoo,oldumove,oldvmove
+      integer :: k
+      real :: oldumove,oldvmove
 
       !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       !cc   Adaptive domain-moving option for TCs  ccccccccccccccccccccccccccc
@@ -2888,23 +4150,18 @@
         ! Uses a smoothed field of pressure at the lowest model level to determine
         ! the position of a TC.
 
-          icfoo = icenter
-          jcfoo = jcenter
-          xcfoo = xcenter
-          ycfoo = ycenter
-
         ! skip if this is first time step
         if( nstep.ge.1 )then
 
-          call getpsmth(xh,yh,pp3d,dum1,xfref,yfref,icfoo,jcfoo,xcfoo,ycfoo,psmth)
-          call getpcent(xh,yh,dum1,icfoo,jcfoo,xcfoo,ycfoo)
+          ! 220313: NOTE: moved getpsmth and getpcent to cm1.F
 
           ! attempt to move toward center of domain by next adaptmove time:
           oldumove = umove
           oldvmove = vmove
 
-          umove = -(centerx-xcfoo)/(1.0*adapt_move_frq)
-          vmove = -(centery-ycfoo)/(1.0*adapt_move_frq)
+          ! 220313: increased timescale from 1.0 to 1.5 times adapt_move_frq
+          umove = -(centerx-xcenter)/(1.5*adapt_move_frq)
+          vmove = -(centery-ycenter)/(1.5*adapt_move_frq)
 
           if( myid.eq.0 ) print *,'  adjusting umove,vmove:',umove,vmove
 
@@ -2930,17 +4187,21 @@
 
           write(82,rec=mvrec) sngl(mtime)
           mvrec = mvrec+1
-          write(82,rec=mvrec) xcfoo
+          write(82,rec=mvrec) xcenter
           mvrec = mvrec+1
-          write(82,rec=mvrec) ycfoo
+          write(82,rec=mvrec) ycenter
           mvrec = mvrec+1
-          write(82,rec=mvrec) real(icfoo)
+          write(82,rec=mvrec) real(icenter)
           mvrec = mvrec+1
-          write(82,rec=mvrec) real(jcfoo)
+          write(82,rec=mvrec) real(jcenter)
           mvrec = mvrec+1
           write(82,rec=mvrec) umove
           mvrec = mvrec+1
           write(82,rec=mvrec) vmove
+          mvrec = mvrec+1
+          write(82,rec=mvrec) sngl(domainlocx)
+          mvrec = mvrec+1
+          write(82,rec=mvrec) sngl(domainlocy)
           mvrec = mvrec+1
 
           close(unit=82)
@@ -2954,14 +4215,16 @@
           write(50,205)
           write(50,206)
           write(50,207) nwritemv
-          write(50,208) 7
-          write(50,209) 'mtime   ','model time (seconds since beginning of simulation)'
-          write(50,209) 'xcenter ','x (m) value of center point                       '
-          write(50,209) 'ycenter ','y (m) value of center point                       '
-          write(50,209) 'icenter ','i value of center point                           '
-          write(50,209) 'jcenter ','j value of center point                           '
-          write(50,209) 'umove   ','umove (m/s)                                       '
-          write(50,209) 'vmove   ','vmove (m/s)                                       '
+          write(50,208) 9
+          write(50,209) 'mtime       ','model time (seconds since beginning of simulation)'
+          write(50,209) 'xcenter     ','x (m) value of center point                       '
+          write(50,209) 'ycenter     ','y (m) value of center point                       '
+          write(50,209) 'icenter     ','i value of center point                           '
+          write(50,209) 'jcenter     ','j value of center point                           '
+          write(50,209) 'umove       ','umove (m/s)                                       '
+          write(50,209) 'vmove       ','vmove (m/s)                                       '
+          write(50,209) 'domainlocx  ','x location of (center of) domain (m)              '
+          write(50,209) 'domainlocy  ','y location of (center of) domain (m)              '
           write(50,210)
           close(unit=50)
 202       format('title CM1 adaptive move info, using version ',a,'; time is generic, see variable mtime for actual times')
@@ -2971,7 +4234,7 @@
 206       format('zdef 1 linear 0.0 1.0')
 207       format('tdef ',i10,' linear 00:00Z01JAN0001 1YR')
 208       format('vars ',i4)
-209       format(a8,' 0 99 ',a50)
+209       format(a12,' 0 99 ',a50)
 210       format('endvars')
 
 
@@ -2991,5 +4254,95 @@
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+
+      subroutine getrangle(xh,yh,xcenter,ycenter, ir, rr, angle)
+      use input
+      use constants
+      implicit none
+
+      real, intent(in), dimension(ib:ie) :: xh
+      real, intent(in), dimension(jb:je) :: yh
+      real, intent(inout) :: xcenter,ycenter
+      integer, intent(inout), dimension(ib:ie,jb:je) :: ir
+      real, intent(inout), dimension(ib:ie,jb:je) :: rr,angle
+
+      integer :: i,j,nn
+      real :: xsave,ysave,rddr,rrtmp
+
+      xsave = xcenter
+      ysave = ycenter
+
+      ir = 0
+      rr = 1.0e30
+      angle = 0.0
+      rddr = 1.0/ddr
+
+    do nn = 1 , 9
+
+      if( nn.eq.1 )then
+        xcenter = xsave
+        ycenter = ysave
+      endif
+      if( nn.eq.2 )then
+        xcenter = xsave + (maxx-minx)
+        ycenter = ysave + (maxy-miny)
+      endif
+      if( nn.eq.3 )then
+        xcenter = xsave - (maxx-minx)
+        ycenter = ysave - (maxy-miny)
+      endif
+      if( nn.eq.4 )then
+        xcenter = xsave + (maxx-minx)
+        ycenter = ysave - (maxy-miny)
+      endif
+      if( nn.eq.5 )then
+        xcenter = xsave - (maxx-minx)
+        ycenter = ysave + (maxy-miny)
+      endif
+      if( nn.eq.6 )then
+        xcenter = xsave + (maxx-minx)
+        ycenter = ysave
+      endif
+      if( nn.eq.7 )then
+        xcenter = xsave - (maxx-minx)
+        ycenter = ysave
+      endif
+      if( nn.eq.8 )then
+        xcenter = xsave
+        ycenter = ysave + (maxy-miny)
+      endif
+      if( nn.eq.9 )then
+        xcenter = xsave
+        ycenter = ysave - (maxy-miny)
+      endif
+
+      do j=1,nj
+      do i=1,ni
+        rrtmp = sqrt( (xh(i)-xcenter)**2 + (yh(j)-ycenter)**2 )
+        if( rrtmp.lt.rr(i,j) )then
+          rr(i,j) = rrtmp
+          ir(i,j) = 1 + int( rr(i,j)*rddr )
+          if( (xh(i)-xcenter).ge.0.0 )then
+            angle(i,j) =      asin( (yh(j)-ycenter)/max(smeps,rr(i,j)) )
+          else
+            angle(i,j) = pi - asin( (yh(j)-ycenter)/max(smeps,rr(i,j)) )
+          endif
+        endif
+      enddo
+      enddo
+
+    enddo
+
+      xcenter = xsave
+      ycenter = ysave
+
+      end subroutine getrangle
+
+
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
 
   END MODULE azimavg_module

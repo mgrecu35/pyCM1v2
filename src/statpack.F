@@ -16,7 +16,7 @@
                           dum1,dum2,dum3,dum4,dum5,rho  ,prs,                 &
                           ua,va,wa,ppi,tha,qa,vq  ,kmh,kmv,khh,khv,tkea,qke,  &
                           tke_myj,xkzh,xkzq,xkzm,                             &
-                          pta,u10,v10,hpbl,prate,reset,nstatout)
+                          pta,u10,v10,hpbl,prate,reset,nstatout,restarted)
 
       use input
       use constants
@@ -70,6 +70,7 @@
       real, intent(in), dimension(ib:ie,jb:je) :: prate
       logical, intent(inout) :: reset
       integer, intent(in) :: nstatout
+      logical, intent(in) :: restarted
 
 !-----------------------------------------------------------------------
 
@@ -128,8 +129,10 @@
     IF( adapt_dt.eq.1 )THEN
       nstat = nstat+1
       rstat(nstat) = sngl(  adt/float(max(1,ndt)) )
-      acfl         = sngl( acfl/float(max(1,ndt)) )
-      reset = .true.
+      if( .not. restarted )then
+        acfl         = sngl( acfl/float(max(1,ndt)) )
+        reset = .true.
+      endif
     ENDIF
 
       if(stat_w.eq.1) call maxmin(ni,nj,nk+1,wa,nstat,rstat,kmin,kmax,'WMAX  ','WMIN  ')
@@ -253,12 +256,14 @@
       endif
 
         if(stat_tke.eq.1)then
-          if( cm1setup.eq.1 )then
+          if( idoles .and. sgsmodel.eq.1 )then
             call maxmin(ni,nj,nk+1,tkea,nstat,rstat,kmin,kmax,'TKEMAX','TKEMIN')
-          elseif( cm1setup.eq.2 )then
+          endif
+          if( idopbl )then
             if( ipbl.eq.4 .or. ipbl.eq.5 )then
               call maxmin(ni,nj,nk,qke,nstat,rstat,kmin,kmax,'QKEMAX','QKEMIN')
-            elseif( ipbl.eq.6 )then
+            endif
+            if( ipbl.eq.6 )then
               call maxmin(ni,nj,nk+1,tke_myj,nstat,rstat,kmin,kmax,'TKEMAX','TKEMIN')
             endif
           endif
@@ -903,8 +908,8 @@
 
     endif
 
-    if( stat_tke.eq.1 .and. (cm1setup.eq.1 .or. cm1setup.eq.2) )then
-    if( cm1setup.eq.1 )then
+  IF(stat_tke.eq.1)THEN
+    if( idoles .and. sgsmodel.eq.1 )then
 
       stat_out = stat_out+1
       name_stat(stat_out) = 'tkemax'
@@ -916,8 +921,9 @@
       desc_stat(stat_out) = 'min subgrid tke'
       unit_stat(stat_out) = 'm^2/s^2'
 
-    elseif( cm1setup.eq.2 )then
-      if( ipbl.eq.4 .or. ipbl.eq.5 )then
+    endif
+    if( idopbl )then
+    if( ipbl.eq.4 .or. ipbl.eq.5 )then
 
       stat_out = stat_out+1
       name_stat(stat_out) = 'qkemax'
@@ -929,7 +935,8 @@
       desc_stat(stat_out) = 'min qke'
       unit_stat(stat_out) = 'm^2/s^2'
 
-      elseif( ipbl.eq.6 )then
+    endif
+    if( ipbl.eq.6 )then
 
       stat_out = stat_out+1
       name_stat(stat_out) = 'tkemax'
@@ -941,9 +948,9 @@
       desc_stat(stat_out) = 'min tke'
       unit_stat(stat_out) = 'm^2/s^2'
 
-      endif
     endif
     endif
+  ENDIF
 
     if( stat_km.eq.1 )then
       stat_out = stat_out+1
