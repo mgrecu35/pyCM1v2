@@ -1425,8 +1425,10 @@ subroutine cm1_init()
       allocate(  th3d(ib:ie,jb:je,kb:ke) )
       th3d = 0.0
       allocate( thten(ib:ie,jb:je,kb:ke) )
-      allocate( thten_mp(ib:ie,jb:je,kb:ke) )
-      thten_mp=0.0
+      allocate( th3dten_mp(ib:ie,jb:je,kb:ke) )
+      th3dten_mp=0.0
+      allocate( thaten_mp(ib:ie,jb:je,kb:ke) )
+      thaten_mp=0.0
       thten = 0.0
       allocate(thten1(ib:ie,jb:je,kb:ke) )
       thten1 = 0.0
@@ -1441,7 +1443,10 @@ subroutine cm1_init()
       qvten = 0.0
       allocate( qcten(ibm:iem,jbm:jem,kbm:kem) )
       qcten = 0.0
-
+      allocate(qaten_mp(ibm:iem,jbm:jem,kbm:kem,numq))
+      allocate(q3dten_mp(ibm:iem,jbm:jem,kbm:kem,numq))
+      qaten_mp=0
+      q3dten_mp=0
       allocate(   bud(nk) )
       bud = 0.0
       allocate(  bud2(nj) )
@@ -3216,7 +3221,10 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
         call pdefq(    0.0,asq(1),ruh,rvh,rmh,rho,q3d(ib,jb,kb,1))
       else
          if (imicro==1) then
-            thten_mp=th3d
+            th3dten_mp=th3d
+            thaten_mp=tha
+            qaten_mp=qa
+            q3dten_mp=q3d
             call   mp_driver(nstep,dt,qbudget,asq,bsq,xh,ruh,xf,ruf,yh,rvh,yf,rvf,  &
                          mh,rmh,c1,c2,zh,mf,rmf,zf,rain,prate,pi0,th0,rho0,prs0,qv0,   &
                          rho,prs,dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,  &
@@ -3226,8 +3234,11 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
                          tdiag,qdiag,out2d,out3d,  &
                          dowriteout,dorad,dotdwrite,doazimwrite,dorestart,  &
                          getdbz,getvt,dotbud,doqbud)
-            thten_mp=th3d-thten_mp
-            print*, maxval(thten_mp), minval(thten_mp), 'thten'             
+            th3dten_mp=th3d-th3dten_mp
+            thaten_mp=tha-thaten_mp
+            qaten_mp=qa-qaten_mp
+            q3dten_mp=q3d-q3dten_mp
+            !print*, maxval(thten_mp), minval(thten_mp), 'thten'             
                          
           endif
       endif

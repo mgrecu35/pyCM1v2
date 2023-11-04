@@ -92,7 +92,8 @@ module cm1vars
       real, dimension(:,:,:), allocatable :: rrw,wa,w3d,wten,wten1
       real, dimension(:,:,:), allocatable :: ppi,pp3d,ppten,sten,sadv,ppx,phi1,phi2
       real, dimension(:,:,:), allocatable :: tha,th3d,thten,thten1,thterm
-      real, dimension(:,:,:), allocatable :: thten_mp
+      real, dimension(:,:,:), allocatable :: thaten_mp,th3dten_mp
+      real, dimension(:,:,:,:),allocatable :: qaten_mp, q3dten_mp
       real, dimension(:,:,:), allocatable :: qpten,qtten,qvten,qcten
       real, dimension(:,:,:,:), allocatable :: qa,q3d,qten
       real, dimension(:,:,:), allocatable :: p3a
