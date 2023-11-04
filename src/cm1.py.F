@@ -247,14 +247,19 @@ subroutine cm1_init()
 
 !----------------------------------------------------------------------
 !  Get domain dimensions, allocate some arrays, then call PARAM
-
-      open(unit=20,file='namelist.input',form='formatted',status='old',    &
-           access='sequential',err=8778)
+      print*, 'got here'
+      
+      open(unit=20,file='namelist.input',&
+      form='formatted',status='old',    &
+      access='sequential',err=8778)
+      
+      print*, 'namelist.input open'
+      
       read(20,nml=param0)
       read(20,nml=param2)
       read(20,nml=param8)
       close(unit=20)
-
+      
       ! note:  read remainder of namelist sections in param.F !
 
 !----------------------------------------------------------------------
@@ -1420,6 +1425,8 @@ subroutine cm1_init()
       allocate(  th3d(ib:ie,jb:je,kb:ke) )
       th3d = 0.0
       allocate( thten(ib:ie,jb:je,kb:ke) )
+      allocate( thten_mp(ib:ie,jb:je,kb:ke) )
+      thten_mp=0.0
       thten = 0.0
       allocate(thten1(ib:ie,jb:je,kb:ke) )
       thten1 = 0.0
@@ -2876,6 +2883,7 @@ subroutine cm1_init()
         if(myid.eq.0) print *
 
       endif
+      return
 8778  print *
       print *,'  8778: error opening namelist.input '
       print *,'    ... stopping cm1 ... '
@@ -2957,8 +2965,8 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
       outfile=166
 !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c!
       timeloop:  &
-    DO WHILE( mtime.lt.timax )
-
+    DO WHILE( mtime.lt.timax .and. ntst<nsteps)
+       ntst=ntst+1
       ifsolve:  &
       if( dosolve )then
 
@@ -3208,6 +3216,7 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
         call pdefq(    0.0,asq(1),ruh,rvh,rmh,rho,q3d(ib,jb,kb,1))
       else
          if (imicro==1) then
+            thten_mp=th3d
             call   mp_driver(nstep,dt,qbudget,asq,bsq,xh,ruh,xf,ruf,yh,rvh,yf,rvf,  &
                          mh,rmh,c1,c2,zh,mf,rmf,zf,rain,prate,pi0,th0,rho0,prs0,qv0,   &
                          rho,prs,dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,  &
@@ -3217,6 +3226,9 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
                          tdiag,qdiag,out2d,out3d,  &
                          dowriteout,dorad,dotdwrite,doazimwrite,dorestart,  &
                          getdbz,getvt,dotbud,doqbud)
+            thten_mp=th3d-thten_mp
+            print*, maxval(thten_mp), minval(thten_mp), 'thten'             
+                         
           endif
       endif
 
@@ -4196,7 +4208,8 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
     ENDDO  timeloop
 !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c!
     time_out=mtime
-    !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c!
+      
+ !c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c-c!
 
 
 !----------------------------------------------------------------------
