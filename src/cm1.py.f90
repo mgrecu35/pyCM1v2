@@ -47,9 +47,7 @@ subroutine cm1_init()
       use ib_module
       use eddy_recycle
       use lsnudge_module
-#ifdef MPI
-      use mpi
-#endif
+
       use cm1vars
      
 
@@ -84,11 +82,7 @@ subroutine cm1_init()
       tsmall = 0.0001
       ! (should be same as qsmall in morrison scheme)
       qsmall = 1.0e-14
-#ifdef DP
-      smeps = 1.0e-60
-      tsmall = 0.000000000001
-      qsmall = 1.0e-24
-#endif
+
       ndcnst = 0.0
       nt_c = 0.0
       qmag = 0.01
@@ -200,11 +194,7 @@ subroutine cm1_init()
       myid=0
       numprocs=1
 
-#ifdef MPI
-      call MPI_INIT( ierr )
-      call MPI_COMM_RANK( MPI_COMM_WORLD, myid, ierr )
-      call MPI_COMM_SIZE( MPI_COMM_WORLD, numprocs, ierr )
-#endif
+
 
 !----------------------------------------------------------------------
 
@@ -216,21 +206,9 @@ subroutine cm1_init()
         print *,'|                                                               |'
         print *,'|---------------------------------------------------------------|'
 
-#ifdef MPI
-        print *,'|                                                               |'
-        print *,'|    compiled using distributed-memory parallelization (MPI)    |'
-        print *,'|                                                               |'
-        print *,'|---------------------------------------------------------------|'
-        print *
-#endif
 
-#ifdef OPENMP
-        print *,'|                                                               |'
-        print *,'|     compiled using shared-memory parallelization (OpenMP)     |'
-        print *,'|                                                               |'
-        print *,'|---------------------------------------------------------------|'
-        print *
-#endif
+
+
 
         print *
       endif
@@ -260,9 +238,7 @@ subroutine cm1_init()
 !----------------------------------------------------------------------
 
       IF( procfiles )THEN
-#ifdef MPI
-        outfile=10
-#endif
+
         dowr = .true.
       ELSE
         dowr = .false.
@@ -271,73 +247,12 @@ subroutine cm1_init()
       IF( myid.eq.0 ) dowr = .true.
 
 !----------------------------------------------------------------------
-#ifdef MPI
-  !......
-  ! cm1r20.1:
-  ! determine values for nodex and nodey:
-    if(myid.eq.0)then
-      minval = 1.0e30
-      open(unit=10,file='proc.info',status='unknown')
-      write(10,*)
-    IF( nx.eq.1 .and. ny.eq.1 )THEN
-      print *
-      print *,'  nx = ',nx
-      print *,'  ny = ',ny
-      print *
-      print *,'  Cannot use MPI when nx = ny = 1 '
-      print *
-      call stopcm1
-    ELSEIF( nx.le.3 )THEN
-      nodex = 1
-      nodey = numprocs
-    ELSEIF( ny.le.3 )THEN
-      nodex = numprocs
-      nodey = 1
-    ELSE
-      do n = numprocs , 1 , -1
-        temy = float(n)
-        temx = float(numprocs)/temy
-        temni = float(nx)/temx
-        temnj = float(ny)/temy
-!!!        write(10,*) temx,temy,temx*temy,numprocs,temx/temy
 
-        ! target: ni = 2 x nj
-        tem0 = abs(temni/temnj-2.0)
-
-        write(10,*) temx,temy,temni,temnj,temni/temnj
-        ! only consider cases in which temx,temy are both integers:
-        if( abs(float(int(temx))-temx).lt.smeps )then
-          write(10,*) '      temx,temy   = ',temx,temy
-          write(10,*) '      temni,temnj = ',temni,temnj
-          if( tem0.lt.minval )then
-            minval = tem0
-            nodex = temx
-            nodey = temy
-            write(10,*) '        minval = ',minval
-          endif
-        endif
-      enddo
-      write(10,*)
-      write(10,*) '  nodex,nodey = ',nodex,nodey,nodex*nodey,numprocs
-      write(10,*)
-    ENDIF
-    endif
-
-    ! just to be sure:
-    nodex  = max(1,nodex)
-    nodey  = max(1,nodey)
-    ppnode = max(1,ppnode)
-
-    call MPI_BCAST(nodex,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-    call MPI_BCAST(nodey,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-
-  !......
-#else
       ! serial (i.e. single-processor) run:
       nodex = 1
       nodey = 1
       ppnode = 1
-#endif
+
 
       ni = nx / nodex
       nj = ny / nodey
@@ -364,154 +279,7 @@ subroutine cm1_init()
       allocate( myj2p(numprocs) )
       myj2p = ny
 
-#ifdef MPI
-!-----------------------------------------------
-!  Determine number of grid points for each processor.
-!
-!  cm1r20:  each processor is no longer required
-!           to have the same number of grid points
 
-      myj = myid / nodex + 1
-      myi = myid - (myj-1)*nodex  + 1
-
-      allocate( isum(nodex) )
-      isum = 0
-      allocate( jsum(nodey) )
-      jsum = 0
-
-      ! determine number of "i" points for each processor:
-
-      ni = 0
-      id = 0
-
-      do i = 1,nx
-        id = id+1
-        isum(id) = isum(id)+1
-        if( id.eq.myi ) ni = ni+1
-        if( id.eq.nodex ) id = 0
-      enddo
-
-      ! determine number of "j" points for each processor:
-
-      nj = 0
-      id = 0
-
-      do j = 1,ny
-        id = id+1
-        jsum(id) = jsum(id)+1
-        if( id.eq.myj ) nj = nj+1
-        if( id.eq.nodey ) id = 0
-      enddo
-
-!......
-
-      ! first gridpoint for each processor (from the total grid):
-
-      myi1 = 1
-      do i=1,(myi-1)
-        myi1 = myi1+isum(i)
-      enddo
-      myi2 = myi1+ni-1
-
-      myj1 = 1
-      do j=1,(myj-1)
-        myj1 = myj1+jsum(j)
-      enddo
-      myj2 = myj1+nj-1
-
-!!!      write(10,*) '  myid,myi1,myi2,myj1,myj2 = ',myid,myi1,myi2,myj1,myj
-
-!......
-
-      ! write processor info:
-
-      n = 0
-
-      if( myid.eq.0 )then
-        write(10,*)
-        write(10,*) '  n,i,j,ni,nj:'
-        do j = 1,nodey
-        do i = 1,nodex
-          if( i.eq.1 .and. j.eq.1 )then
-            write(10,*) n,i,j,ni,nj
-          else
-            call mpi_recv(ii   ,1,mpi_integer,n,1,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(jj   ,1,mpi_integer,n,2,MPI_COMM_WORLD,status,ierr)
-            write(10,*) n,i,j,ii,jj
-          endif
-          n = n+1
-        enddo
-        enddo
-      else
-        call mpi_send(ni  ,1,mpi_integer,0,1,MPI_COMM_WORLD,ierr)
-        call mpi_send(nj  ,1,mpi_integer,0,2,MPI_COMM_WORLD,ierr)
-      endif
-
-!......
-
-      ! write more processor info:
-
-      n = 0
-
-      if( myid.eq.0 )then
-        write(10,*)
-        write(10,*) '  n,myi1,myi2,myj1,myj2:'
-        do j = 1,nodey
-        do i = 1,nodex
-          if( i.eq.1 .and. j.eq.1 )then
-            write(10,*) n,myi1,myi2,myj1,myj2
-            myi1p(1) = myi1
-            myi2p(1) = myi2
-            myj1p(1) = myj1
-            myj2p(1) = myj2
-          else
-            call mpi_recv(itmp1,1,mpi_integer,n,3,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(itmp2,1,mpi_integer,n,4,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(jtmp1,1,mpi_integer,n,5,MPI_COMM_WORLD,status,ierr)
-            call mpi_recv(jtmp2,1,mpi_integer,n,6,MPI_COMM_WORLD,status,ierr)
-            write(10,*) n,itmp1,itmp2,jtmp1,jtmp2
-            myi1p(n+1) = itmp1
-            myi2p(n+1) = itmp2
-            myj1p(n+1) = jtmp1
-            myj2p(n+1) = jtmp2
-          endif
-          n = n+1
-        enddo
-        enddo
-        write(10,*)
-      else
-        call mpi_send(myi1,1,mpi_integer,0,3,MPI_COMM_WORLD,ierr)
-        call mpi_send(myi2,1,mpi_integer,0,4,MPI_COMM_WORLD,ierr)
-        call mpi_send(myj1,1,mpi_integer,0,5,MPI_COMM_WORLD,ierr)
-        call mpi_send(myj2,1,mpi_integer,0,6,MPI_COMM_WORLD,ierr)
-      endif
-
-      call MPI_BCAST(myi1p,numprocs,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(myi2p,numprocs,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(myj1p,numprocs,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(myj2p,numprocs,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-
-      nimax = 0
-      do n=1,numprocs
-        nimax = max( nimax , myi2p(n)-myi1p(n)+1 )
-      enddo
-
-      njmax = 0
-      do n=1,numprocs
-        njmax = max( njmax , myj2p(n)-myj1p(n)+1 )
-      enddo
-
-!......
-
-      deallocate( isum )
-      deallocate( jsum )
-
-      close(unit=10)
-
-!!!      call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-
-!-----------------------------------------------
-#endif
 
 
       call wenocheck
@@ -708,21 +476,14 @@ subroutine cm1_init()
 !------
 ! allocate the MPI arrays
 
-#ifdef MPI
-      imp = max(1,ni)
-      jmp = max(1,nj)
-      kmp = max(2,nk)
-      kmt = max(2,nk+1)
-      rmp = 8
-      cmp = ngxy
-#else
+
       imp = 1
       jmp = 1
       kmp = 2
       kmt = 2
       rmp = 1
       cmp = 1
-#endif
+
 
       allocate( reqs_u(rmp) )
       reqs_u = 0
@@ -1022,14 +783,10 @@ subroutine cm1_init()
 
       dbldt = dble(dt)
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *
           if(myid.eq.0) print *,'  allocating MPI comm arrays ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
       allocate( reqs_q(rmp,numq) )
       reqs_q = 0
@@ -1139,13 +896,9 @@ subroutine cm1_init()
 !----------------------------------------------------------------------
 !  allocate the base state arrays, then call BASE
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating base state arrays ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
       allocate( rho0s(ib:ie,jb:je) )
       rho0s = 0.0
@@ -1184,13 +937,9 @@ subroutine cm1_init()
       allocate(   v0(ib:ie,jb:je+1,kb:ke) )
       v0 = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating dum, out2d, out3d arrays ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
       allocate( thrd(ibb2:ibe2,jbb2:jbe2,kbb2:kbe2) )
       thrd = 0.0
@@ -1220,13 +969,9 @@ subroutine cm1_init()
       allocate( out3d(ib3d:ie3d,jb3d:je3d,kb3d:ke3d,nout3d) )
       out3d = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
       call       base(zh,mh,rmh,c1,c2,zf,mf,rho0s,pi0s,prs0s,rth0s,         &
                       wprof,ufrc,vfrc,thfrc,qvfrc,ug,vg,dvdr,               &
@@ -1243,14 +988,10 @@ subroutine cm1_init()
 !----------------------------------------------------------------------
 !  Now, allocate the mother lode, then call INIT3D
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *
           if(myid.eq.0) print *,'  allocating 2d vars ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate(   rain(ib:ie,jb:je,nrain) )
       rain = 0.0
       allocate(    sws(ib:ie,jb:je,nrain) )
@@ -1332,13 +1073,9 @@ subroutine cm1_init()
       allocate( radbcn(ib:ie,kb:ke) )
       radbcn = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating tau + etc ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( divx(ib:ie,jb:je,kb:ke) )
       divx = 0.0
       allocate(  rho(ib:ie,jb:je,kb:ke) )
@@ -1350,13 +1087,9 @@ subroutine cm1_init()
       allocate(  prs(ib:ie,jb:je,kb:ke) )
       prs = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating u,v,w ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate(   rru(ib:ie+1,jb:je,kb:ke) )
       rru = 0.0
       allocate(    ua(ib:ie+1,jb:je,kb:ke) )
@@ -1390,13 +1123,9 @@ subroutine cm1_init()
       allocate( wten1(ib:ie,jb:je,kb:ke+1) )
       wten1 = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating p,th ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate(   ppi(ib:ie,jb:je,kb:ke) )
       ppi = 0.0
       allocate(  pp3d(ib:ie,jb:je,kb:ke) )
@@ -1446,13 +1175,9 @@ subroutine cm1_init()
       allocate(    bsq(numq) )
       bsq = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating qa,q3d,qten ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate(     qa(ibm:iem,jbm:jem,kbm:kem,numq) )
       qa = 0.0
       allocate(    q3d(ibm:iem,jbm:jem,kbm:kem,numq) )
@@ -1465,13 +1190,9 @@ subroutine cm1_init()
       allocate( p3o(ibp3:iep3,jbp3:jep3,kbp3:kep3,np3o) )
       p3o = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating k,tke ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
       if( cm1setup.eq.3 )then
         kminit = 0.0
@@ -1506,13 +1227,9 @@ subroutine cm1_init()
       allocate( tketen(ibt:iet,jbt:jet,kbt:ket) )
       tketen = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating pbl arrays ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( thpten(ibb:ieb,jbb:jeb,kbb:keb) )
       thpten = 0.0
       allocate( qvpten(ibb:ieb,jbb:jeb,kbb:keb) )
@@ -1536,13 +1253,9 @@ subroutine cm1_init()
       allocate( qgpten(ibb:ieb,jbb:jeb,kbb:keb) )
       qgpten = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating mynn arrays ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       ! MYNN:
       allocate(       tsq(ibmynn:iemynn,jbmynn:jemynn,kbmynn:kemynn) )
       tsq = 0.0
@@ -1610,13 +1323,9 @@ subroutine cm1_init()
       !-----------------
       ! begin radiation
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating rad vars ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( swten(ibr:ier,jbr:jer,kbr:ker) )
       swten = 0.0
       allocate( lwten(ibr:ier,jbr:jer,kbr:ker) )
@@ -1742,13 +1451,9 @@ subroutine cm1_init()
       ! end radiation
       !-----------------
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating sfc vars ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( lu_index(ibl:iel,jbl:jel) )
       lu_index = 0
       allocate(   kpbl2d(ibl:iel,jbl:jel) )
@@ -2053,13 +1758,9 @@ subroutine cm1_init()
 
 !----------------------------------------------------------------------
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating dat vars ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( dat1(d3i,d3j) )
       dat1 = 0.0
       allocate( dat2(d2i,d2j) )
@@ -2070,13 +1771,9 @@ subroutine cm1_init()
       reqt = 0
 
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating parcel vars ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate(  pdata(nparcels,npvals) )
       pdata = 0.0
       allocate(   ploc(nparcels,  3   ) )
@@ -2085,13 +1782,9 @@ subroutine cm1_init()
       allocate( flag(ib:ie,jb:je,kb:ke) )
       flag = .false.
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  allocating misc vars ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate(    cfb(ipb:ipe,jpb:jpe,kpb:kpe) )
       cfb = 0.0
       allocate(    cfa(kpb:kpe) )
@@ -2120,13 +1813,9 @@ subroutine cm1_init()
       allocate( cangle(ib:ie,jb:je) )
       cangle = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
 !----------------------------------------------------------------------
 
@@ -2191,76 +1880,44 @@ subroutine cm1_init()
       if( myid.eq.0 ) print *,'  allocating diagnostic arrays: '
       if( myid.eq.0 ) print *
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'      tdiag ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( tdiag(ibdt:iedt,jbdt:jedt,kbdt:kedt,ntdiag) )
       tdiag = 0.0
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'      qdiag ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( qdiag(ibdq:iedq,jbdq:jedq,kbdq:kedq,nqdiag) )
       qdiag = 0.0
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'      udiag ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( udiag(ibdv:iedv,jbdv:jedv,kbdv:kedv,nudiag) )
       udiag = 0.0
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'      vdiag ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( vdiag(ibdv:iedv,jbdv:jedv,kbdv:kedv,nvdiag) )
       vdiag = 0.0
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'      wdiag ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( wdiag(ibdv:iedv,jbdv:jedv,kbdv:kedv,nwdiag) )
       wdiag = 0.0
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'      kdiag ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( kdiag(ibdk:iedk,jbdk:jedk,kbdk:kedk,nkdiag) )
       kdiag = 0.0
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'      pdiag ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
       allocate( pdiag(ibdp:iedp,jbdp:jedp,kbdp:kedp,npdiag) )
       pdiag = 0.0
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
 !----------------------------------------------------------------------
 
@@ -2286,9 +1943,7 @@ subroutine cm1_init()
           print *,'  Stopping cm1 ... '
           print *
           endif
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           call stopcm1
         endif
 
@@ -2303,9 +1958,7 @@ subroutine cm1_init()
           print *,'  Stopping cm1 ... '
           print *
           endif
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           call stopcm1
         endif
         ! initial values for cyclone center
@@ -2527,14 +2180,10 @@ subroutine cm1_init()
 !----------------------------------------------------------------------
 !  final batch of allocations...
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *
           if(myid.eq.0) print *,'      allocating turb arrays ... '
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
       allocate(  t11(ib:ie,jb:je,kb:ke) )
       t11 = 0.0
@@ -2597,14 +2246,10 @@ subroutine cm1_init()
       allocate( vfwk(ib2pt:ie2pt,jb2pt:je2pt,kb2pt:ke2pt) )
       vfwk = 0.0
 
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           if(myid.eq.0) print *,'  ... done with major memory allocations '
           if(myid.eq.0) print *
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
 
 
 !----------------------------------------------------------------------
@@ -2682,9 +2327,7 @@ subroutine cm1_init()
         !..........  check for advection stability ..........!
 
         call calccflquick(dt,uh,vh,mh,u3d,v3d,w3d,reqc)
-#ifdef MPI
-        call mpi_wait(reqc,mpi_status_ignore,ierr)
-#endif
+
 
         ! a "target" Courant number of 0.5 seems safe:
 
@@ -2694,9 +2337,7 @@ subroutine cm1_init()
         dt = dbldt
 
         call calccflquick(dt,uh,vh,mh,u3d,v3d,w3d,reqc)
-#ifdef MPI
-        call mpi_wait(reqc,mpi_status_ignore,ierr)
-#endif
+
 
         if( myid.eq.0 ) print *,'  Adaptive timestep for interp_on_restart: '
         if( myid.eq.0 ) print *,'    after cflcheck: cflmax,dt = ',cflmax,dt
@@ -2706,9 +2347,7 @@ subroutine cm1_init()
         IF( cm1setup.ge.1 )THEN
 
           call calcksquick(dt,uh,vh,mf,kmh,kmv,khh,khv,reqk)
-#ifdef MPI
-          call mpi_wait(reqk,mpi_status_ignore,ierr)
-#endif
+
 
           ks_target = 0.05
 
@@ -2719,9 +2358,7 @@ subroutine cm1_init()
           endif
 
           call calcksquick(dt,uh,vh,mf,kmh,kmv,khh,khv,reqk)
-#ifdef MPI
-          call mpi_wait(reqk,mpi_status_ignore,ierr)
-#endif
+
 
           if( myid.eq.0 ) print *,'    after kscheck:  ksmax,dt  = ',ksmax,dt
 
@@ -2747,18 +2384,11 @@ subroutine cm1_init()
           ! (ie, not a restart)
 
           call calccflquick(dt,uh,vh,mh,u3d,v3d,w3d,reqc)
-#ifdef MPI
-          call mpi_wait(reqc,mpi_status_ignore,ierr)
-          if(cflmax.ge.1.50) stopit=.true.
-          if(timestats.ge.1) time_cflq=time_cflq+mytime()
-#endif
+
           if(myid.eq.0) print *,'  cflmax = ',cflmax
           if( cm1setup.ge.1 )then
             call calcksquick(dt,uh,vh,mf,kmh,kmv,khh,khv,reqk)
-#ifdef MPI
-            call mpi_wait(reqk,mpi_status_ignore,ierr)
-            if(timestats.ge.1) time_cflq=time_cflq+mytime()
-#endif
+
             if(myid.eq.0) print *,'  ksmax  = ',ksmax
           endif
           stopit = .false.
@@ -2790,13 +2420,7 @@ subroutine cm1_init()
 
 !----------------------------------------------------------------------
 
-#ifdef MPI
-      call MPI_BARRIER (MPI_COMM_WORLD,ierr)
 
-      if(myid.eq.0)then
-        tstart=mpi_wtime()
-      endif
-#endif
 
       call set_time_to_zero()
 
@@ -2948,9 +2572,7 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
       use eddy_recycle
       use lsnudge_module
       use cm1vars
-#ifdef MPI
-      use mpi
-#endif
+
       integer :: ntst, nsteps, imicro
       real :: time_out
       ntst=0
@@ -3587,12 +3209,7 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
                       divx,rho,rr,rf,t11,t12,t13,t22,t23,t33,u3d,v3d,w3d,dissten)
       ENDIF
 
-#ifdef MPI
-      if( cm1setup.ge.1 .and. adapt_dt.eq.1 )then
-        call mpi_wait(reqk,mpi_status_ignore,ierr)
-        if(timestats.ge.1) time_cflq=time_cflq+mytime()
-      endif
-#endif
+
 
       !cccccccccccccccccccccccccccccccccccccccccccccccccccccccc!
       !cccccccccccccccccccccccccccccccccccccccccccccccccccccccc!
@@ -4091,9 +3708,7 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
           if(dowr) write(outfile,*)
           if(dowr) write(outfile,*) '  ... stopping ... '
           if(dowr) write(outfile,*)
-#ifdef MPI
-          call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
           stop 55556
         ENDIF
         nrst = nrst+1
@@ -4113,12 +3728,7 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
                     time_satadj+time_dbz+time_sfcphys+time_parcels+         &
                     time_rad+time_pbl+time_swath+time_pdef+time_prsrho+     &
                     time_diag+time_azimavg+time_hifrq+time_ercyl+time_tavg+ &
-#ifdef MPI
-                    time_mpu1+time_mpv1+time_mpw1+time_mpp1+                &
-                    time_mpu2+time_mpv2+time_mpw2+time_mpp2+                &
-                    time_mps1+time_mps3+time_mpq1+time_mptk1+                         &
-                    time_mps2+time_mps4+time_mpq2+time_mptk2+time_mpb+                &
-#endif
+
                     time_advs+time_advu+time_advv+time_advw
           write(6,157) nstep,steptime2-steptime1
 157       format('    timing for time step ',i12,':',f12.4,' s')
@@ -4134,9 +3744,7 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
             if(dowr) write(outfile,*) '     (iconly = 1)'
             if(dowr) write(outfile,*) '  ... stopping ... '
             if(dowr) write(outfile,*)
-#ifdef MPI
-            call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
             stop 55555
           endif
         endif
@@ -4179,9 +3787,7 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
           print *,' Stopping model .... '
           print *
         endif
-#ifdef MPI
-        call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
         call stopcm1
       endif
 
@@ -4207,3 +3813,4 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
 !----------------------------------------------------------------------
 
 end subroutine cm1_timestep
+

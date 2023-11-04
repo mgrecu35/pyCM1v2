@@ -28,9 +28,7 @@ module cm1vars
       use ib_module
       use eddy_recycle
       use lsnudge_module
-#ifdef MPI
-      use mpi
-#endif
+
       implicit none
 
       integer :: nstep,nstep0
@@ -245,13 +243,8 @@ module cm1vars
       real(kind=qp) :: qtem
       logical :: printit
 
-#ifdef MPI
-      integer :: reqs,rc,ii,jj,id,itmp1,itmp2,jtmp1,jtmp2
-      integer, dimension(MPI_STATUS_SIZE) :: status
-      real :: mp_total,minval,temx,temy,temni,temnj
-      double precision :: tstart,tend
-      integer, dimension(:), allocatable :: isum,jsum
-#endif
+
 end module cm1vars
+
 
 

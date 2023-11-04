@@ -687,14 +687,14 @@
       allocate( dtv0(ib:ie,jb:je) )
       dtv0 = 1.0
 
-      allocate( cmz(kb:ke) )
-      cmz = 0.0
-      allocate( csz(kb:ke) )
-      csz = 0.0
-      allocate( ce1z(kb:ke) )
-      ce1z = 0.0
-      allocate( ce2z(kb:ke) )
-      ce2z = 0.0
+      !allocate( cmz(kb:ke) )
+      !cmz = 0.0
+      !allocate( csz(kb:ke) )
+      !csz = 0.0
+      !allocate( ce1z(kb:ke) )
+      !ce1z = 0.0
+      !allocate( ce2z(kb:ke) )
+      !ce2z = 0.0
 
 !------
 ! allocate the MPI arrays
@@ -1859,7 +1859,7 @@
       lowlyr = 1
       allocate( ivgtyp(ibmyj:iemyj,jbmyj:jemyj) )
       ivgtyp = 0
-
+      
       allocate( tke_myj(ibmyj:iemyj,jbmyj:jemyj,kbmyj:kemyj) )
       tke_myj = 0.01
       allocate(  el_myj(ibmyj:iemyj,jbmyj:jemyj,kbmyj:kemyj) )
@@ -1867,9 +1867,12 @@
 
       nmyj = 28
 
-      allocate( tmp_myj(ibmyj:iemyj,kbmyj:kemyj,nmyj) )
-      tmp_myj = 0.0
+      !allocate( tmp_myj(ibmyj:iemyj,kbmyj:kemyj,nmyj) )
+      !tmp_myj = 0.0
 
+      allocate( tmp_pbl(ibpbl:iepbl,kbpbl:kepbl,npbl) )
+      tmp_pbl = 0.0
+            
       ! start with very small, but non-zero, numbers:
       tem = 1.0e-6
       znt = tem

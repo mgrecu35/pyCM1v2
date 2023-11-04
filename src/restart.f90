@@ -47,13 +47,10 @@
       use input
       use constants
       use lsnudge_module
-#ifdef MPI
-      use mpi
-#endif
-#ifdef NETCDF
+
       use netcdf
       use writeout_nc_module, only : restart_prelim,disp_err
-#endif
+
       implicit none
 
       !----------------------------------------------------------
@@ -143,14 +140,9 @@
       integer :: ncid,time_index
       real, dimension(:), allocatable :: dumx,dumy
       integer :: nodemaster
-#ifdef MPI
-      integer :: proc,index,count,req1,req2,req3,reqp
-      double precision, dimension(nbudget) :: cfoo
-      double precision, dimension(numq) :: afoo,bfoo
-#endif
-#ifdef NETCDF
+
       integer :: varid,ncstatus
-#endif
+
 
 !-----------------------------------------------------------------------
 
@@ -273,7 +265,7 @@
     stop 12388
   ENDIF
 
-#ifdef NETCDF
+
   ELSEIF( restart_format.eq.2 )THEN
     ! netcdf format:
 
@@ -282,7 +274,7 @@
                               qname,num_soil_layers,nrad2d,dat2(1,1),dat2(1,2),dum1(ib,jb,kb),time_index)
     endif
 
-#endif
+
   ELSE
 
     if( myid.eq.0 )then
@@ -292,9 +284,7 @@
       print *,'      restart_format = ',restart_format
       print *
     endif
-#ifdef MPI
-    call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
     call stopcm1
 
   ENDIF
@@ -356,7 +346,7 @@
       write(50) avgsfcq
       write(50) avgsfcp
     ENDIF
-#ifdef NETCDF
+
   ELSEIF( restart_format.eq.2 )THEN
     IF(myid.eq.0)THEN
 
@@ -514,44 +504,11 @@
       call disp_err( nf90_put_var(ncid,varid,avgsfcp,(/time_index/)) , .true. )
 
     ENDIF
-#endif
+
   ENDIF
 
 !-----------------------------------------------------------------------
-#ifdef MPI
-      cfoo = 0.0
-      call MPI_REDUCE(qbudget(1),cfoo(1),nbudget,MPI_DOUBLE_PRECISION,MPI_SUM,0,  &
-                      MPI_COMM_WORLD,ierr)
-      if( myid.eq.0 )then
-        do n=1,nbudget
-          qbudget(n)=cfoo(n)
-        enddo
-      else
-        qbudget = 0.0
-      endif
-      if( imoist.eq.1 )then
-        afoo = 0.0
-        call MPI_REDUCE(asq(1),afoo(1),numq,MPI_DOUBLE_PRECISION,MPI_SUM,0,  &
-                        MPI_COMM_WORLD,ierr)
-        if( myid.eq.0 )then
-          do n=1,numq
-            asq(n)=afoo(n)
-          enddo
-        else
-          asq = 0.0
-        endif
-        bfoo = 0.0
-        call MPI_REDUCE(bsq(1),bfoo(1),numq,MPI_DOUBLE_PRECISION,MPI_SUM,0,  &
-                        MPI_COMM_WORLD,ierr)
-        if( myid.eq.0 )then
-          do n=1,numq
-            bsq(n)=bfoo(n)
-          enddo
-        else
-          bsq = 0.0
-        endif
-      endif
-#endif
+
 !-----------------------------------------------------------------------
 ! budget variables:
 
@@ -561,7 +518,7 @@
         write(50) qbudget
         write(50) asq
         write(50) bsq
-#ifdef NETCDF
+
       ELSEIF( restart_format.eq.2 )THEN
         call disp_err( nf90_inq_varid(ncid,"qbudget",varid) , .true. )
         call disp_err( nf90_put_var(ncid,varid,qbudget,(/1,time_index/),(/nbudget,1/)) , .true. )
@@ -569,7 +526,7 @@
         call disp_err( nf90_put_var(ncid,varid,asq,(/1,time_index/),(/numq,1/)) , .true. )
         call disp_err( nf90_inq_varid(ncid,"bsq",varid) , .true. )
         call disp_err( nf90_put_var(ncid,varid,bsq,(/1,time_index/),(/numq,1/)) , .true. )
-#endif
+
       ENDIF
 
     ENDIF
@@ -1467,11 +1424,11 @@
         if(myid.eq.0)then
           if( restart_format.eq.1 )then
             write(50) npt
-#ifdef NETCDF
+
           elseif( restart_format.eq.2 )then
             call disp_err( nf90_inq_varid(ncid,"npt",varid) , .true. )
             call disp_err( nf90_put_var(ncid,varid,npt,(/time_index/)) , .true. )
-#endif
+
           endif
         endif
         do n=1,npt
@@ -1496,11 +1453,11 @@
           nvar = 0
           if( restart_format.eq.1 )then
             write(50) nvar
-#ifdef NETCDF
+
           elseif( restart_format.eq.2 )then
             call disp_err( nf90_inq_varid(ncid,"npt",varid) , .true. )
             call disp_err( nf90_put_var(ncid,varid,nvar,(/time_index/)) , .true. )
-#endif
+
           endif
         endif
       endif
@@ -1514,11 +1471,11 @@
         if(myid.eq.0)then
           if( restart_format.eq.1 )then
             write(50) nparcels
-#ifdef NETCDF
+
           elseif( restart_format.eq.2 )then
             call disp_err( nf90_inq_varid(ncid,"numparcels",varid) , .true. )
             call disp_err( nf90_put_var(ncid,varid,nparcels,(/time_index/)) , .true. )
-#endif
+
           endif
         endif
         ! only write position info:
@@ -1538,12 +1495,12 @@
           endif
           if( restart_format.eq.1 )then
             write(50) ploc
-#ifdef NETCDF
+
           elseif( restart_format.eq.2 )then
             call disp_err( nf90_inq_varid(ncid,"ploc",varid) , .true. )
             n = 3
             call disp_err( nf90_put_var(ncid,varid,ploc,(/1,1,time_index/),(/nparcels,n,1/)) , .true. )
-#endif
+
           endif
         endif
       else
@@ -1553,11 +1510,11 @@
           nvar = 0
           if( restart_format.eq.1 )then
             write(50) nvar
-#ifdef NETCDF
+
           elseif( restart_format.eq.2 )then
             call disp_err( nf90_inq_varid(ncid,"numparcels",varid) , .true. )
             call disp_err( nf90_put_var(ncid,varid,nvar,(/time_index/)) , .true. )
-#endif
+
           endif
         endif
         !-----------------
@@ -1581,7 +1538,7 @@
         !----------------------
       if( wbc.eq.2 )then
         aname = 'radbcw'
-#ifdef NETCDF
+
         if( restart_format.eq.2 .and. myid.eq.0 )then
           ncstatus = nf90_inq_varid(ncid,aname,varid)
           if(ncstatus.ne.nf90_noerr)then
@@ -1590,13 +1547,13 @@
             call stopcm1
           endif
         endif
-#endif
+
         do k=1,nk
           call writerbcwe(radbcw,aname,ndum,dumy,ibw,jb,je,kb,ke,ny,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myj1p)
           if( myid.eq.0 )then
             if( restart_format.eq.1 )then
               write(50) dumy
-#ifdef NETCDF
+
             elseif( restart_format.eq.2 )then
               ncstatus = nf90_put_var(ncid,varid,dumy,(/1,k,time_index/),(/ny,1,1/))
               if(ncstatus.ne.nf90_noerr)then
@@ -1604,7 +1561,7 @@
                 print *,nf90_strerror(ncstatus)
                 call stopcm1
               endif
-#endif
+
             endif
           endif
         enddo
@@ -1614,7 +1571,7 @@
         !----------------------
       if( ebc.eq.2 )then
         aname = 'radbce'
-#ifdef NETCDF
+
         if( restart_format.eq.2 .and. myid.eq.0 )then
           ncstatus = nf90_inq_varid(ncid,aname,varid)
           if(ncstatus.ne.nf90_noerr)then
@@ -1623,13 +1580,13 @@
             call stopcm1
           endif
         endif
-#endif
+
         do k=1,nk
           call writerbcwe(radbce,aname,ndum,dumy,ibe,jb,je,kb,ke,ny,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myj1p)
           if( myid.eq.0 )then
             if( restart_format.eq.1 )then
               write(50) dumy
-#ifdef NETCDF
+
             elseif( restart_format.eq.2 )then
               ncstatus = nf90_put_var(ncid,varid,dumy,(/1,k,time_index/),(/ny,1,1/))
               if(ncstatus.ne.nf90_noerr)then
@@ -1637,7 +1594,7 @@
                 print *,nf90_strerror(ncstatus)
                 call stopcm1
               endif
-#endif
+
             endif
           endif
         enddo
@@ -1655,7 +1612,7 @@
         !----------------------
       if( sbc.eq.2 )then
         aname = 'radbcs'
-#ifdef NETCDF
+
         if( restart_format.eq.2 .and. myid.eq.0 )then
           ncstatus = nf90_inq_varid(ncid,aname,varid)
           if(ncstatus.ne.nf90_noerr)then
@@ -1664,13 +1621,13 @@
             call stopcm1
           endif
         endif
-#endif
+
         do k=1,nk
           call writerbcsn(radbcs,aname,ndum,dumx,ibs,ib,ie,kb,ke,nx,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myi1p)
           if( myid.eq.0 )then
             if( restart_format.eq.1 )then
               write(50) dumx
-#ifdef NETCDF
+
             elseif( restart_format.eq.2 )then
               ncstatus = nf90_put_var(ncid,varid,dumx,(/1,k,time_index/),(/nx,1,1/))
               if(ncstatus.ne.nf90_noerr)then
@@ -1678,7 +1635,7 @@
                 print *,nf90_strerror(ncstatus)
                 call stopcm1
               endif
-#endif
+
             endif
           endif
         enddo
@@ -1688,7 +1645,7 @@
         !----------------------
       if( nbc.eq.2 )then
         aname = 'radbcn'
-#ifdef NETCDF
+
         if( restart_format.eq.2 .and. myid.eq.0 )then
           ncstatus = nf90_inq_varid(ncid,aname,varid)
           if(ncstatus.ne.nf90_noerr)then
@@ -1697,13 +1654,13 @@
             call stopcm1
           endif
         endif
-#endif
+
         do k=1,nk
           call writerbcsn(radbcn,aname,ndum,dumx,ibn,ib,ie,kb,ke,nx,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myi1p)
           if( myid.eq.0 )then
             if( restart_format.eq.1 )then
               write(50) dumx
-#ifdef NETCDF
+
             elseif( restart_format.eq.2 )then
               ncstatus = nf90_put_var(ncid,varid,dumx,(/1,k,time_index/),(/nx,1,1/))
               if(ncstatus.ne.nf90_noerr)then
@@ -1711,7 +1668,7 @@
                 print *,nf90_strerror(ncstatus)
                 call stopcm1
               endif
-#endif
+
             endif
           endif
         enddo
@@ -1858,11 +1815,11 @@
       if( myid.eq.0 )then
       if( restart_format.eq.1 )then
         write(50) nwriteh
-#ifdef NETCDF
+
       elseif( restart_format.eq.2 )then
       call disp_err( nf90_inq_varid(ncid,"nwriteh",varid) , .true. )
       call disp_err( nf90_put_var(ncid,varid,nwriteh,(/time_index/)) , .true. )
-#endif
+
       endif
       endif
 
@@ -1875,20 +1832,15 @@
       IF(myid.eq.nodemaster) close(unit=52)
       IF(myid.eq.nodemaster) close(unit=53)
       IF(myid.eq.nodemaster) close(unit=54)
-#ifdef NETCDF
+
     ELSEIF( restart_format.eq.2 )THEN
       if( myid.eq.0 )then
         call disp_err( nf90_close(ncid) , .true. )
       endif
-#endif
+
     ENDIF
 
-#ifdef MPI
-      if(timestats.ge.1)then
-        ! this is needed for proper accounting of timing:
-        call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-      endif
-#endif
+
 
       return
       end subroutine write_restart
@@ -1941,13 +1893,10 @@
       use lsnudge_module
       use goddard_module, only : consat,consat2
       use lfoice_module, only : lfoice_init
-#ifdef MPI
-      use mpi
-#endif
-#ifdef NETCDF
+
       use netcdf
       use writeout_nc_module, only : disp_err
-#endif
+
       implicit none
 
       !----------------------------------------------------------
@@ -2042,12 +1991,9 @@
       real, dimension(:,:), allocatable :: pfoo
       real, dimension(:), allocatable :: dumx,dumy
       integer :: nodemaster
-#ifdef MPI
-      integer :: proc,index,count,req1,req2,req3,reqp
-#endif
-#ifdef NETCDF
+
       integer :: varid,ncstatus
-#endif
+
 
 !-----------------------------------------------------------------------
 
@@ -2171,7 +2117,7 @@
     stop 12389
   ENDIF
 
-#ifdef NETCDF
+
   ELSEIF( restart_format.eq.2 )THEN
     ! netcdf format:
 
@@ -2196,7 +2142,7 @@
 
     endif
 
-#endif
+
   ELSE
 
     if( myid.eq.0 )then
@@ -2206,9 +2152,7 @@
       print *,'      restart_format = ',restart_format
       print *
     endif
-#ifdef MPI
-    call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-#endif
+
     call stopcm1
 
   ENDIF
@@ -2270,7 +2214,7 @@
       read(50) avgsfcq
       read(50) avgsfcp
     ENDIF
-#ifdef NETCDF
+
   ELSEIF( restart_format.eq.2 )THEN
     IF(myid.eq.0)THEN
 
@@ -2428,62 +2372,10 @@
       call disp_err( nf90_get_var(ncid,varid,avgsfcp,(/time_index/)) , .true. )
 
     ENDIF
-#endif
+
   ENDIF
 
-#ifdef MPI
-      ! communicate to all other processors:
-      call MPI_BCAST(nstep  ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(srec   ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(sirec  ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(urec   ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(vrec   ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(wrec   ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(nrec   ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(mrec   ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(prec   ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(trecs  ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(trecw  ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(arecs  ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(arecw  ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(mvrec  ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(nwrite ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(nwritet,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(nwritea,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(nwritemv,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(nrst   ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(nstatout,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(ndt    ,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(icenter,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(jcenter,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(old_format,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(dt     ,1,MPI_REAL            ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(dtlast ,1,MPI_REAL            ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(xcenter,1,MPI_REAL            ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(ycenter,1,MPI_REAL            ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(umove  ,1,MPI_REAL            ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(vmove  ,1,MPI_REAL            ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(adaptmovetim,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(cflmax ,1,MPI_REAL            ,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(mtime  ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(stattim,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(taptim ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(rsttim ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(radtim ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(prcltim,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(adt    ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(acfl   ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(dbldt  ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(mass1  ,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(avgsfcu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(avgsfcv,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(avgsfcs,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(avgsfcsu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(avgsfcsv,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(avgsfct,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(avgsfcq,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(avgsfcp,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-#endif
+
 
 !---------------------------------------------------------------
 ! budget variables:
@@ -2494,7 +2386,7 @@
         read(50) qbudget
         read(50) asq
         read(50) bsq
-#ifdef NETCDF
+
       ELSEIF( restart_format.eq.2 )THEN
         call disp_err( nf90_inq_varid(ncid,"qbudget",varid) , .true. )
         call disp_err( nf90_get_var(ncid,varid,qbudget,(/1,time_index/),(/nbudget,1/)) , .true. )
@@ -2502,7 +2394,7 @@
         call disp_err( nf90_get_var(ncid,varid,asq,(/1,time_index/),(/numq,1/)) , .true. )
         call disp_err( nf90_inq_varid(ncid,"bsq",varid) , .true. )
         call disp_err( nf90_get_var(ncid,varid,bsq,(/1,time_index/),(/numq,1/)) , .true. )
-#endif
+
       ENDIF
 
     ELSE
@@ -2522,10 +2414,7 @@
       read(50) vg
     endif
 
-#ifdef MPI
-    call MPI_BCAST(ug(kb),ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-    call MPI_BCAST(vg(kb),ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-#endif
+
 
   ENDIF
 
@@ -3401,18 +3290,7 @@
          read(50) ce1z
          read(50) ce2z
       endif
-#ifdef MPI
-      call MPI_BCAST(gamk,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(kmw ,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(ufw ,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(vfw ,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(u1b ,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(v1b ,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(cmz ,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(csz ,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(ce1z,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_BCAST(ce2z,ke-kb+1,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-#endif
+
 
 !---------------------------------------------------------------
 !  passive tracers:
@@ -3420,19 +3298,17 @@
       if( myid.eq.0 )then
         if( restart_format.eq.1 )then
           read(50) nvar
-#ifdef NETCDF
+
         elseif( restart_format.eq.2 )then
           call disp_err( nf90_inq_varid(ncid,"npt",varid) , .true. )
           call disp_err( nf90_get_var(ncid,varid,nvar,(/time_index/)) , .true. )
           if( iptra.eq.0 ) nvar = 0
-#endif
+
         endif
         print *,'  nvar_npt = ',nvar
       endif
 
-#ifdef MPI
-      call MPI_BCAST(nvar,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-#endif
+
 
       if( iptra.eq.1 .or. nvar.gt.0 )then
         if( nvar.gt.0 )then
@@ -3488,19 +3364,17 @@
       if( myid.eq.0 )then
         if( restart_format.eq.1 )then
           read(50) nvar
-#ifdef NETCDF
+
         elseif( restart_format.eq.2 )then
           call disp_err( nf90_inq_varid(ncid,"numparcels",varid) , .true. )
           call disp_err( nf90_get_var(ncid,varid,nvar,(/time_index/)) , .true. )
           if( iprcl.eq.0 ) nvar = 0
-#endif
+
         endif
         print *,'  nvar_parcels = ',nvar
       endif
 
-#ifdef MPI
-      call MPI_BCAST(nvar,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-#endif
+
 
       if( iprcl.eq.1 .or. nvar.gt.0 )then
         if( nvar.gt.0 )then
@@ -3510,12 +3384,12 @@
               ! easy:  restart file matches current config
               if( restart_format.eq.1 )then
                 read(50) ploc
-#ifdef NETCDF
+
               elseif( restart_format.eq.2 )then
                 call disp_err( nf90_inq_varid(ncid,"ploc",varid) , .true. )
                 n = 3
                 call disp_err( nf90_get_var(ncid,varid,ploc,(/1,1,time_index/),(/nparcels,n,1/)) , .true. )
-#endif
+
               endif
             ELSE
               ! annoying:  restart file has different nparcels than current config
@@ -3538,12 +3412,12 @@
               allocate( pfoo(nvar,3) )
               if( restart_format.eq.1 )then
                 read(50) pfoo
-#ifdef NETCDF
+
               elseif( restart_format.eq.2 )then
                 call disp_err( nf90_inq_varid(ncid,"ploc",varid) , .true. )
                 n = 3
                 call disp_err( nf90_get_var(ncid,varid,pfoo,(/1,1,time_index/),(/nvar,n,1/)) , .true. )
-#endif
+
               endif
               IF( iprcl.eq.1 )THEN
                 do n=1,3
@@ -3557,9 +3431,7 @@
             ENDIF
           endif
           IF( iprcl.eq.1 )THEN
-#ifdef MPI
-            call MPI_BCAST(ploc,3*nparcels,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-#endif
+
             if( .not. terrain_flag )then
               DO np=1,nparcels
                 pdata(np,prx)=ploc(np,1)
@@ -3601,7 +3473,7 @@
         !----------------------
       if( wbc.eq.2 )then
         aname = 'radbcw'
-#ifdef NETCDF
+
         if( restart_format.eq.2 .and. myid.eq.0 )then
           ncstatus = nf90_inq_varid(ncid,aname,varid)
           if(ncstatus.ne.nf90_noerr)then
@@ -3610,12 +3482,12 @@
             call stopcm1
           endif
         endif
-#endif
+
         do k=1,nk
           if( myid.eq.0 )then
             if( restart_format.eq.1 )then
               read(50) dumy
-#ifdef NETCDF
+
             elseif( restart_format.eq.2 )then
               ncstatus = nf90_get_var(ncid,varid,dumy,(/1,k,time_index/),(/ny,1,1/))
               if(ncstatus.ne.nf90_noerr)then
@@ -3623,7 +3495,7 @@
                 print *,nf90_strerror(ncstatus)
                 call stopcm1
               endif
-#endif
+
             endif
           endif
           call readrbcwe(radbcw,aname,ndum,dumy,ibw,jb,je,kb,ke,ny,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myj1p)
@@ -3634,7 +3506,7 @@
         !----------------------
       if( ebc.eq.2 )then
         aname = 'radbce'
-#ifdef NETCDF
+
         if( restart_format.eq.2 .and. myid.eq.0 )then
           ncstatus = nf90_inq_varid(ncid,aname,varid)
           if(ncstatus.ne.nf90_noerr)then
@@ -3643,12 +3515,12 @@
             call stopcm1
           endif
         endif
-#endif
+
         do k=1,nk
           if( myid.eq.0 )then
             if( restart_format.eq.1 )then
               read(50) dumy
-#ifdef NETCDF
+
             elseif( restart_format.eq.2 )then
               ncstatus = nf90_get_var(ncid,varid,dumy,(/1,k,time_index/),(/ny,1,1/))
               if(ncstatus.ne.nf90_noerr)then
@@ -3656,7 +3528,7 @@
                 print *,nf90_strerror(ncstatus)
                 call stopcm1
               endif
-#endif
+
             endif
           endif
           call readrbcwe(radbce,aname,ndum,dumy,ibe,jb,je,kb,ke,ny,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myj1p)
@@ -3675,7 +3547,7 @@
         !----------------------
       if( sbc.eq.2 )then
         aname = 'radbcs'
-#ifdef NETCDF
+
         if( restart_format.eq.2 .and. myid.eq.0 )then
           ncstatus = nf90_inq_varid(ncid,aname,varid)
           if(ncstatus.ne.nf90_noerr)then
@@ -3684,12 +3556,12 @@
             call stopcm1
           endif
         endif
-#endif
+
         do k=1,nk
           if( myid.eq.0 )then
             if( restart_format.eq.1 )then
               read(50) dumx
-#ifdef NETCDF
+
             elseif( restart_format.eq.2 )then
               ncstatus = nf90_get_var(ncid,varid,dumx,(/1,k,time_index/),(/nx,1,1/))
               if(ncstatus.ne.nf90_noerr)then
@@ -3697,7 +3569,7 @@
                 print *,nf90_strerror(ncstatus)
                 call stopcm1
               endif
-#endif
+
             endif
           endif
           call readrbcsn(radbcs,aname,ndum,dumx,ibs,ib,ie,kb,ke,nx,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myi1p)
@@ -3708,7 +3580,7 @@
         !----------------------
       if( nbc.eq.2 )then
         aname = 'radbcn'
-#ifdef NETCDF
+
         if( restart_format.eq.2 .and. myid.eq.0 )then
           ncstatus = nf90_inq_varid(ncid,aname,varid)
           if(ncstatus.ne.nf90_noerr)then
@@ -3717,12 +3589,12 @@
             call stopcm1
           endif
         endif
-#endif
+
         do k=1,nk
           if( myid.eq.0 )then
             if( restart_format.eq.1 )then
               read(50) dumx
-#ifdef NETCDF
+
             elseif( restart_format.eq.2 )then
               ncstatus = nf90_get_var(ncid,varid,dumx,(/1,k,time_index/),(/nx,1,1/))
               if(ncstatus.ne.nf90_noerr)then
@@ -3730,7 +3602,7 @@
                 print *,nf90_strerror(ncstatus)
                 call stopcm1
               endif
-#endif
+
             endif
           endif
           call readrbcsn(radbcn,aname,ndum,dumx,ibn,ib,ie,kb,ke,nx,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myi1p)
@@ -3786,16 +3658,14 @@
       if( myid.eq.0 )then
       if( restart_format.eq.1 )then
         read(50) nwriteh
-#ifdef NETCDF
+
       elseif( restart_format.eq.2 )then
       call disp_err( nf90_inq_varid(ncid,"nwriteh",varid) , .true. )
       call disp_err( nf90_get_var(ncid,varid,nwriteh,(/time_index/)) , .true. )
-#endif
+
       endif
       endif
-#ifdef MPI
-      call MPI_BCAST(nwriteh,1,MPI_INTEGER         ,0,MPI_COMM_WORLD,ierr)
-#endif
+
 
     IF( restart_format.eq.1 )THEN
       IF(myid.eq.0) close(unit=50)
@@ -3803,12 +3673,12 @@
       IF(myid.eq.nodemaster) close(unit=52)
       IF(myid.eq.nodemaster) close(unit=53)
       IF(myid.eq.nodemaster) close(unit=54)
-#ifdef NETCDF
+
     ELSEIF( restart_format.eq.2 )THEN
       if( myid.eq.0 )then
         call disp_err( nf90_close(ncid) , .true. )
       endif
-#endif
+
     ENDIF
 
     if( restarted ) nrst = nrst+1
@@ -3896,12 +3766,7 @@
 
 !---------
 
-#ifdef MPI
-      if(timestats.ge.1)then
-        ! this is needed for proper accounting of timing:
-        call MPI_BARRIER (MPI_COMM_WORLD,ierr)
-      endif
-#endif
+
 
       return
 
@@ -3918,9 +3783,7 @@
 
 
       subroutine writerbcwe(radbc,aname,ndum,dumy,ibndy,jb,je,kb,ke,ny,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myj1p)
-#ifdef MPI
-      use mpi
-#endif
+
       implicit none
 
       integer, intent(in) :: ndum,ibndy,jb,je,kb,ke,ny,ni,nj,nk,nodex,nodey,k
@@ -3932,47 +3795,13 @@
       integer, intent(in), dimension(numprocs) :: myj1p
 
       integer :: j,j1,j2
-#ifdef MPI
-      integer :: fooj,proc,reqs,ierr,req1,njrecv
-#endif
 
-#ifndef MPI
+
+
       do j=1,ny
         dumy(j) = radbc(j,k)
       enddo
-#else
-      IF(myid.ne.0)THEN
-        if( ibndy.eq.1 )then
-          call MPI_ISEND(nj,1,MPI_INTEGER,0,30,MPI_COMM_WORLD,req1,ierr)
-          call MPI_ISEND(radbc(1,k),nj,MPI_REAL,0,31,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(req1,mpi_status_ignore,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-        endif
-      ELSE
-        if( (aname.eq.'radbcw') .or. (aname.eq.'radbce' .and. nodex.eq.1) )then
-          do j=1,nj
-            dumy(j) = radbc(j,k)
-          enddo
-          j1 = 2
-          j2 = nodey
-        else
-          j1 = 1
-          j2 = nodey
-        endif
-        do j=j1,j2
-          if( aname.eq.'radbcw' )then
-            proc = (j-1)*nodex
-          else
-            proc = (j-1)*nodex + (nodex-1)
-          endif
-          call MPI_IRECV(njrecv,1,MPI_INTEGER,proc,30,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-          fooj = myj1p(proc+1)
-          call MPI_IRECV(dumy(fooj),njrecv,MPI_REAL,proc,31,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-        enddo
-      ENDIF
-#endif
+
 
       end subroutine writerbcwe
 
@@ -3983,9 +3812,7 @@
 
 
       subroutine writerbcsn(radbc,aname,ndum,dumx,ibndy,ib,ie,kb,ke,nx,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myi1p)
-#ifdef MPI
-      use mpi
-#endif
+
       implicit none
 
       integer, intent(in) :: ndum,ibndy,ib,ie,kb,ke,nx,ni,nj,nk,nodex,nodey,k
@@ -3997,47 +3824,13 @@
       integer, intent(in), dimension(numprocs) :: myi1p
 
       integer :: i,i1,i2
-#ifdef MPI
-      integer :: fooi,proc,reqs,ierr,req1,nirecv
-#endif
 
-#ifndef MPI
+
+
       do i=1,nx
         dumx(i) = radbc(i,k)
       enddo
-#else
-      IF(myid.ne.0)THEN
-        if( ibndy.eq.1 )then
-          call MPI_ISEND(ni,1,MPI_INTEGER,0,33,MPI_COMM_WORLD,req1,ierr)
-          call MPI_ISEND(radbc(1,k),ni,MPI_REAL,0,32,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(req1,mpi_status_ignore,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-        endif
-      ELSE
-        if( (aname.eq.'radbcs') .or. (aname.eq.'radbcn' .and. nodey.eq.1) )then
-          do i=1,ni
-            dumx(i) = radbc(i,k)
-          enddo
-          i1 = 2
-          i2 = nodex
-        else
-          i1 = 1
-          i2 = nodex
-        endif
-        do i=i1,i2
-          if( aname.eq.'radbcs' )then
-            proc = (i-1)
-          else
-            proc = (i-1) + nodex*(nodey-1)
-          endif
-          call MPI_IRECV(nirecv,1,MPI_INTEGER,proc,33,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-          fooi = myi1p(proc+1)
-          call MPI_IRECV(dumx(fooi),nirecv,MPI_REAL,proc,32,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-        enddo
-      ENDIF
-#endif
+
 
       end subroutine writerbcsn
 
@@ -4048,9 +3841,7 @@
 
 
       subroutine  readrbcwe(radbc,aname,ndum,dumy,ibndy,jb,je,kb,ke,ny,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myj1p)
-#ifdef MPI
-      use mpi
-#endif
+
       implicit none
 
       integer, intent(in) :: ndum,ibndy,jb,je,kb,ke,ny,ni,nj,nk,nodex,nodey,k
@@ -4062,46 +3853,13 @@
       integer, intent(in), dimension(numprocs) :: myj1p
 
       integer :: j,j1,j2
-#ifdef MPI
-      integer :: fooi,fooj,proc,reqs,ierr,req1,njrecv
-#endif
 
-#ifndef MPI
+
+
       do j=1,ny
         radbc(j,k) = dumy(j)
       enddo
-#else
-      IF(myid.ne.0)THEN
-        if( ibndy.eq.1 )then
-          call MPI_ISEND(nj,1,MPI_INTEGER,0,30,MPI_COMM_WORLD,req1,ierr)
-          call MPI_IRECV(radbc(1,k),nj,MPI_REAL,0,33,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(req1,mpi_status_ignore,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-        endif
-      ELSE
-        if( (aname.eq.'radbcw') .or. (aname.eq.'radbce' .and. nodex.eq.1) )then
-          do j=1,nj
-            radbc(j,k) = dumy(j)
-          enddo
-          j1 = 2
-          j2 = nodey
-        else
-          j1 = 1
-          j2 = nodey
-        endif
-        do j=j1,j2
-          if( aname.eq.'radbcw' )then
-            proc = (j-1)*nodex
-          else
-            proc = (j-1)*nodex + (nodex-1)
-          endif
-          call MPI_IRECV(njrecv,1,MPI_INTEGER,proc,30,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-          call MPI_ISEND(dumy(myj1p(proc+1)),njrecv,MPI_REAL,proc,33,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-        enddo
-      ENDIF
-#endif
+
 
       end subroutine  readrbcwe
 
@@ -4112,9 +3870,7 @@
 
 
       subroutine  readrbcsn(radbc,aname,ndum,dumx,ibndy,ib,ie,kb,ke,nx,ni,nj,nk,nodex,nodey,restart_format,myid,k,numprocs,myi1p)
-#ifdef MPI
-      use mpi
-#endif
+
       implicit none
 
       integer, intent(in) :: ndum,ibndy,ib,ie,kb,ke,nx,ni,nj,nk,nodex,nodey,k
@@ -4126,46 +3882,13 @@
       integer, intent(in), dimension(numprocs) :: myi1p
 
       integer :: i,i1,i2
-#ifdef MPI
-      integer :: fooi,fooj,proc,reqs,ierr,req1,nirecv
-#endif
 
-#ifndef MPI
+
+
       do i=1,nx
         radbc(i,k) = dumx(i)
       enddo
-#else
-      IF(myid.ne.0)THEN
-        if( ibndy.eq.1 )then
-          call MPI_ISEND(ni,1,MPI_INTEGER,0,33,MPI_COMM_WORLD,req1,ierr)
-          call MPI_IRECV(radbc(1,k),ni,MPI_REAL,0,34,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(req1,mpi_status_ignore,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-        endif
-      ELSE
-        if( (aname.eq.'radbcs') .or. (aname.eq.'radbcn' .and. nodey.eq.1) )then
-          do i=1,ni
-            radbc(i,k) = dumx(i)
-          enddo
-          i1 = 2
-          i2 = nodex
-        else
-          i1 = 1
-          i2 = nodex
-        endif
-        do i=i1,i2
-          if( aname.eq.'radbcs' )then
-            proc = (i-1)
-          else
-            proc = (i-1) + nodex*(nodey-1)
-          endif
-          call MPI_IRECV(nirecv,1,MPI_INTEGER,proc,33,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-          call MPI_ISEND(dumx(myi1p(proc+1)),nirecv,MPI_REAL,proc,34,MPI_COMM_WORLD,reqs,ierr)
-          call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-        enddo
-      ENDIF
-#endif
+
 
       end subroutine  readrbcsn
 
@@ -4179,12 +3902,9 @@
                       ni,nj,ngxy,myid,numprocs,nodex,nodey,orec,nfile,   &
                       ncid,time_index,restart_format,restart_filetype,myi1p,myi2p,myj1p,myj2p,   &
                       dat1,dat2,dat3,reqt,ppnode,d3n,d3t,mynode,nodemaster,nodes,d2i,d2j,d3i,d3j)
-#ifdef MPI
-    use mpi
-#endif
-#ifdef NETCDF
+
     use netcdf
-#endif
+
     implicit none
 
     !-------------------------------------------------------------------
@@ -4207,14 +3927,9 @@
     integer, intent(in), dimension(numprocs) :: myi1p,myi2p,myj1p,myj2p
 
     integer :: i,j,k,msk,nitmp,njtmp
-#ifdef MPI
-    integer :: reqs,index,index2,n,nn,nnn,fooi,fooj,proc,ierr,ntot,n1,n2,tag
-    logical :: recv1,recv2
-    integer, dimension(mpi_status_size,ppnode-1) :: status1
-#endif
-#ifdef NETCDF
+
     integer :: varid,status
-#endif
+
 
 !-------------------------------------------------------------------------------
 
@@ -4224,16 +3939,11 @@
 
     msk = 0
 
-#ifdef MPI
-    !----------------- MPI section -----------------!
-    recv1 = .true.
-    recv2 = .true.
-    tag = 1
-#endif
+
 
     kloop:  DO k=numk1,numk2
 
-#ifndef MPI
+
       !-------------------- non-MPI section --------------------!
 !$omp parallel do default(shared)   &
 !$omp private(i,j)
@@ -4242,7 +3952,7 @@
         dat2(i,j)=var(i,j,k)
       enddo
       enddo
-#ifdef NETCDF
+
       if( restart_format.eq.2 )then
         status = nf90_inq_varid(ncid,aname,varid)
         if(status.ne.nf90_noerr)then
@@ -4251,164 +3961,14 @@
           call stopcm1
         endif
       endif
-#endif
-#else
-      iamnodemaster:  IF(myid.ne.nodemaster)THEN
-        ! ordinary processor ... send data to nodemaster:
-!$omp parallel do default(shared)   &
-!$omp private(i,j)
-        do j=1,numj
-        do i=1,numi
-          dat1(i,j)=var(i,j,k)
-        enddo
-        enddo
-        call MPI_ISEND(dat1(1,1),d3i*d3j,MPI_REAL,nodemaster,tag,MPI_COMM_WORLD,reqs,ierr)
-        call MPI_WAIT(reqs,MPI_STATUS_IGNORE,ierr)
-        ! DONE, ordinary processors
-      ELSE
-        ! begin nodemaster section:
-        if( recv1 )then
-          ! start receives from all other processors on a node:
-          do proc=myid+1,myid+(ppnode-1)
-            call MPI_IRECV(dat3(1,1,proc),d3i*d3j,MPI_REAL,proc,tag,MPI_COMM_WORLD,reqt(proc-myid),ierr)
-          enddo
-        endif
-        iammsk:  IF(myid.ne.msk)THEN
-          ! nodemaster, not proc msk:
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-          do j=1,numj
-          do i=1,numi
-            dat3(i,j,myid)=var(i,j,k)
-          enddo
-          enddo
-          ! wait for receives to finish:
-          call mpi_waitall(ppnode-1,reqt(1:ppnode-1),status1,ierr)
-          ! send data to processor msk:
-          call MPI_ISEND(dat3(1,1,myid),d3i*d3j*ppnode,MPI_REAL,msk,tag+1,MPI_COMM_WORLD,reqs,ierr)
-          ! wait for send to finish:
-          call MPI_WAIT(reqs,MPI_STATUS_IGNORE,ierr)
-          recv1 = .true.
-          ! DONE, nodemaster (not proc msk)
-        ELSE
-          ! proc msk:
-          if( recv2 )then
-            ! start receives from other nodemasters:
-            do n = 1,(nodes-1)
-              if( n.le.mynode )then
-                proc = (n-1)*ppnode
-              else
-                proc = n*ppnode
-              endif
-              call MPI_IRECV(dat3(1,1,proc),d3i*d3j*ppnode,MPI_REAL,proc,tag+1,MPI_COMM_WORLD,reqt(ppnode-1+n),ierr)
-            enddo
-          endif
-#ifdef NETCDF
-          if( restart_format.eq.2 .and. k.eq.numk1 )then
-            status = nf90_inq_varid(ncid,aname,varid)
-            if(status.ne.nf90_noerr)then
-              print *,'  Error1 in writer, aname = ',aname
-              print *,nf90_strerror(status)
-              call stopcm1
-            endif
-          endif
-#endif
-          ! my data:
-          if( myid.eq.0 )then
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-            do j=1,numj
-            do i=1,numi
-              dat2(i,j)=var(i,j,k)
-            enddo
-            enddo
-          else
-            fooj = myid / nodex + 1
-            fooi = myid - (fooj-1)*nodex  + 1
-            fooi = (fooi-1)*ni
-            fooj = (fooj-1)*nj
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-            do j=1,numj
-            do i=1,numi
-              dat2(fooi+i,fooj+j)=var(i,j,k)
-            enddo
-            enddo
-          endif
-          ! wait for data to arrive:
-          ntot = ppnode-1 + nodes-1
-          do nn=1,ntot
-            call mpi_waitany(ntot,reqt(1:ntot),index,MPI_STATUS_IGNORE,ierr)
-            if( index.le.(ppnode-1) )then
-              ! data from ordinary procs on node:
-              proc = myid+index
-              fooi = myi1p(proc+1)-1
-              fooj = myj1p(proc+1)-1
-              nitmp = myi2p(proc+1)-myi1p(proc+1)+1
-              njtmp = myj2p(proc+1)-myj1p(proc+1)+1
-              if( numi.gt.ni ) nitmp = nitmp+1
-              if( numj.gt.nj ) njtmp = njtmp+1
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-              do j=1,njtmp
-              do i=1,nitmp
-                dat2(fooi+i,fooj+j) = dat3(i,j,proc)
-              enddo
-              enddo
-            else
-              ! data from other nodemasters:
-              index2 = index-(ppnode-1)
-              if( index2.le.mynode )then
-                index2 = index2-1
-              endif
-              n1 = index2*ppnode
-              n2 = (index2+1)*ppnode-1
-              do nnn = n1,n2
-                proc = nnn
-                fooi = myi1p(proc+1)-1
-                fooj = myj1p(proc+1)-1
-                nitmp = myi2p(proc+1)-myi1p(proc+1)+1
-                njtmp = myj2p(proc+1)-myj1p(proc+1)+1
-                if( numi.gt.ni ) nitmp = nitmp+1
-                if( numj.gt.nj ) njtmp = njtmp+1
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-                do j=1,njtmp
-                do i=1,nitmp
-                  dat2(fooi+i,fooj+j) = dat3(i,j,proc)
-                enddo
-                enddo
-              enddo
-            endif
-          enddo
-          ! DONE, proc msk
-          ! processor is ready to write.
-          IF( k.lt.numk2 )THEN
-            ! start receives for next level:
-            do proc=myid+1,myid+(ppnode-1)
-              call MPI_IRECV(dat3(1,1,proc),d3i*d3j,MPI_REAL,proc,tag+2,MPI_COMM_WORLD,reqt(proc-myid),ierr)
-            enddo
-            recv1 = .false.
-!!!#ifdef NETCDF
-!!!            IF( restart_format.eq.2 )THEN
-              do n = 1,(nodes-1)
-                proc = n*ppnode
-                call MPI_IRECV(dat3(1,1,proc),d3i*d3j*ppnode,MPI_REAL,proc,tag+3,MPI_COMM_WORLD,reqt(ppnode-1+n),ierr)
-              enddo
-              recv2 = .false.
-!!!            ENDIF
-!!!#endif
-          ENDIF
-        ENDIF  iammsk
-      ENDIF  iamnodemaster
-#endif
+
 
         ! WRITE DATA:
         IF( myid.eq.msk )THEN
           !---   write data   ------------------!
           IF( restart_format.eq.1 )THEN
             write(nfile,rec=orec) ((dat2(i,j),i=1,nxr),j=1,nyr)
-#ifdef NETCDF
+
           ELSEIF( restart_format.eq.2 )THEN
             ! ----- netcdf format -----
             if(numk1.eq.numk2)then
@@ -4421,7 +3981,7 @@
               print *,nf90_strerror(status)
               call stopcm1
             endif
-#endif
+
           ENDIF
         ENDIF
 
@@ -4433,9 +3993,7 @@
 !!!        if( msk.ge.numprocs ) msk = msk-numprocs
 !!!#endif
       ENDIF
-#ifdef MPI
-      tag = tag+2
-#endif
+
       !---  done with this level   ---------!
     ENDDO  kloop
 
@@ -4443,16 +4001,7 @@
 
 !-------------------------------------------------------------------------------
 
-#ifdef MPI
-    rf2:  IF( restart_filetype.eq.3 )THEN
 
-      call    writer2(numi,numj,numk1,numk2,nxr,nyr,var,aname,           &
-                      ni,nj,ngxy,myid,numprocs,nodex,nodey,orec,nfile,   &
-                      ncid,time_index,restart_format,restart_filetype,myi1p,myi2p,myj1p,myj2p,   &
-                      dat1(1,1),dat2(1,1),dat3(1,1,0),reqt,ppnode,d3n,d3t,mynode,nodemaster,nodes,d2i,d2j,d3i,d3j)
-
-    ENDIF  rf2
-#endif
 
 !-------------------------------------------------------------------------------
 !ccccc  done  cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -4477,12 +4026,9 @@
                       ni,nj,ngxy,myid,numprocs,nodex,nodey,orec,nfile,   &
                       ncid,time_index,restart_format,restart_filetype,myi1p,myi2p,myj1p,myj2p,   &
                       dat1,dat2,dat3,reqt,ppnode,d3n,d3t,mynode,nodemaster,nodes,d2i,d2j,d3i,d3j)
-#ifdef MPI
-    use mpi
-#endif
-#ifdef NETCDF
+
     use netcdf
-#endif
+
     implicit none
 
     !-------------------------------------------------------------------
@@ -4505,15 +4051,9 @@
     integer, intent(in), dimension(numprocs) :: myi1p,myi2p,myj1p,myj2p
 
     integer :: i,j,k,msk,nitmp,njtmp
-#ifdef MPI
-    integer :: reqs,index,index2,n,nn,nnn,fooi,fooj,proc,ierr,ntot,n1,n2
-    integer :: tag
-    integer, dimension(mpi_status_size,ppnode-1) :: status1
-    integer, dimension(mpi_status_size,ppnode-1 + nodes-1) :: status2
-#endif
-#ifdef NETCDF
+
     integer :: varid,status
-#endif
+
 
 !-------------------------------------------------------------------------------
 
@@ -4523,11 +4063,7 @@
 
     msk = 0
 
-#ifdef MPI
-    !----------------- MPI section -----------------!
-    tag = 1
-#endif
-#ifdef NETCDF
+
     if( myid.eq.0 )then
       if( restart_format.eq.2 )then
         status = nf90_inq_varid(ncid,aname,varid)
@@ -4538,54 +4074,15 @@
         endif
       endif
     endif
-#endif
+
 
     kloop:  DO k=numk1,numk2
 
-#ifdef MPI
-      IF(myid.ne.nodemaster)THEN
-        ! ordinary processor ... recv data from nodemaster:
-        call MPI_IRECV(dat1(1,1),d3i*d3j,MPI_REAL,nodemaster,tag,MPI_COMM_WORLD,reqs,ierr)
-        call MPI_WAIT(reqs,MPI_STATUS_IGNORE,ierr)
-!$omp parallel do default(shared)   &
-!$omp private(i,j)
-        do j=1,numj
-        do i=1,numi
-          var(i,j,k)=dat1(i,j)
-        enddo
-        enddo
-        ! DONE, ordinary processors
-      ELSE
-        ! begin nodemaster section:
-        IF(myid.ne.msk)THEN
-          ! nodemaster, not proc msk:
-          ! get data from msk:
-          call MPI_IRECV(dat3(1,1,myid),d3i*d3j*ppnode,MPI_REAL,msk,tag+1,MPI_COMM_WORLD,reqs,ierr)
-          ! wait for data to arrive:
-          call MPI_WAIT(reqs,MPI_STATUS_IGNORE,ierr)
-          ! start sends to other processors on a node:
-          do proc=myid+1,myid+(ppnode-1)
-            call MPI_ISEND(dat3(1,1,proc),d3i*d3j,MPI_REAL,proc,tag,MPI_COMM_WORLD,reqt(proc-myid),ierr)
-          enddo
-          ! my data:
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-          do j=1,numj
-          do i=1,numi
-            var(i,j,k)=dat3(i,j,myid)
-          enddo
-          enddo
-          ! wait for sends to finish:
-          call mpi_waitall(ppnode-1,reqt(1:ppnode-1),status1,ierr)
-          ! DONE, nodemaster (not proc msk)
-        ELSE
-          ! proc msk:
-          ! read data:
-#endif
+
 
           IF( restart_format.eq.1 )THEN
             read(nfile,rec=orec) ((dat2(i,j),i=1,nxr),j=1,nyr)
-#ifdef NETCDF
+
           ELSEIF( restart_format.eq.2 )THEN
             ! ----- netcdf format -----
             if(numk1.eq.numk2)then
@@ -4598,10 +4095,10 @@
               print *,nf90_strerror(status)
               call stopcm1
             endif
-#endif
+
           ENDIF
 
-#ifndef MPI
+
 !$omp parallel do default(shared)   &
 !$omp private(i,j)
           do j=1,numj
@@ -4609,83 +4106,7 @@
             var(i,j,k)=dat2(i,j)
           enddo
           enddo
-#else
-          ! send data:
-          do nn=1,( nodes-1 )
-              ! send data to other nodemasters:
-              index2 = nn
-              if( index2.le.mynode )then
-                index2 = index2-1
-              endif
-              n1 = index2*ppnode
-              n2 = (index2+1)*ppnode-1
-              do nnn=n1,n2
-                proc = nnn
-                fooi = myi1p(proc+1)-1
-                fooj = myj1p(proc+1)-1
-                nitmp = myi2p(proc+1)-myi1p(proc+1)+1
-                njtmp = myj2p(proc+1)-myj1p(proc+1)+1
-                if( numi.gt.ni ) nitmp = nitmp+1
-                if( numj.gt.nj ) njtmp = njtmp+1
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-                do j=1,njtmp
-                do i=1,nitmp
-                  dat3(i,j,proc) = dat2(fooi+i,fooj+j)
-                enddo
-                enddo
-              enddo
-              proc = index2*ppnode
-              call MPI_ISEND(dat3(1,1,proc),d3i*d3j*ppnode,MPI_REAL,proc,tag+1,MPI_COMM_WORLD,reqt(ppnode-1+nn),ierr)
-          enddo
-          do nn=1,( ppnode-1 )
-              ! send data to ordinary procs on this node:
-              proc = myid+nn
-              fooi = myi1p(proc+1)-1
-              fooj = myj1p(proc+1)-1
-              nitmp = myi2p(proc+1)-myi1p(proc+1)+1
-              njtmp = myj2p(proc+1)-myj1p(proc+1)+1
-              if( numi.gt.ni ) nitmp = nitmp+1
-              if( numj.gt.nj ) njtmp = njtmp+1
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-              do j=1,njtmp
-              do i=1,nitmp
-                dat3(i,j,proc) = dat2(fooi+i,fooj+j)
-              enddo
-              enddo
-              call MPI_ISEND(dat3(1,1,proc),d3i*d3j,MPI_REAL,proc,tag,MPI_COMM_WORLD,reqt(nn),ierr)
-          enddo
-          ! my data:
-          if( myid.eq.0 )then
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-            do j=1,numj
-            do i=1,numi
-              var(i,j,k) = dat2(i,j)
-            enddo
-            enddo
-          else
-            proc = myid
-            fooi = myi1p(proc+1)-1
-            fooj = myj1p(proc+1)-1
-            nitmp = myi2p(proc+1)-myi1p(proc+1)+1
-            njtmp = myj2p(proc+1)-myj1p(proc+1)+1
-            if( numi.gt.ni ) nitmp = nitmp+1
-            if( numj.gt.nj ) njtmp = njtmp+1
-!$omp parallel do default(shared)  &
-!$omp private(i,j)
-            do j=1,njtmp
-            do i=1,nitmp
-              var(i,j,k) = dat2(fooi+i,fooj+j)
-            enddo
-            enddo
-          endif
-          ntot = ppnode-1 + nodes-1
-          call mpi_waitall(ntot,reqt(1:ntot),status2,ierr)
-        ENDIF
-      ENDIF
-#endif
+
       !---  prepare for next level   -------!
       IF( restart_format.eq.1 )THEN
         orec = orec+1
@@ -4694,9 +4115,7 @@
 !!!        if( msk.ge.numprocs ) msk = msk-numprocs
 !!!#endif
       ENDIF
-#ifdef MPI
-      tag = tag+2
-#endif
+
       !---  done with this level   ---------!
     ENDDO  kloop
 
@@ -4704,16 +4123,7 @@
 
 !-------------------------------------------------------------------------------
 
-#ifdef MPI
-    rf2:  IF( restart_filetype.eq.3 )THEN
 
-      call     readr2(numi,numj,numk1,numk2,nxr,nyr,var,aname,           &
-                      ni,nj,ngxy,myid,numprocs,nodex,nodey,orec,nfile,   &
-                      ncid,time_index,restart_format,restart_filetype,myi1p,myi2p,myj1p,myj2p,   &
-                      dat1(1,1),dat2(1,1),dat3(1,1,0),reqt,ppnode,d3n,d3t,mynode,nodemaster,nodes,d2i,d2j,d3i,d3j)
-
-    ENDIF  rf2
-#endif
 
 !-------------------------------------------------------------------------------
 !ccccc  done  cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -4729,160 +4139,7 @@
     end subroutine  readr
 
 
-#ifdef MPI
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-
-    ! cm1r17-format restart files !
-    subroutine writer2(numi,numj,numk1,numk2,nxr,nyr,var,aname,          &
-                      ni,nj,ngxy,myid,numprocs,nodex,nodey,orec,nfile,   &
-                      ncid,time_index,restart_format,restart_filetype,myi1p,myi2p,myj1p,myj2p,   &
-                      dat1,dat2,dat3,reqt,ppnode,d3n,d3t,mynode,nodemaster,nodes,d2i,d2j,d3i,d3j)
-    use mpi
-    implicit none
-
-    !-------------------------------------------------------------------
-    ! This subroutine collects data (from other processors if this is a
-    ! MPI run) and does the actual writing of restart files.
-    !-------------------------------------------------------------------
-
-    integer, intent(in) :: numi,numj,numk1,numk2,nxr,nyr
-    integer, intent(in) :: ppnode,d3n,d3t,d2i,d2j,d3i,d3j
-    real, intent(in   ), dimension(1-ngxy:numi+ngxy,1-ngxy:numj+ngxy,numk1:numk2) :: var
-    character(len=8), intent(in) :: aname
-    integer, intent(in) :: ni,nj,ngxy,myid,numprocs,nodex,nodey
-    integer, intent(inout) :: orec,ncid
-    integer, intent(in) :: time_index,restart_format,restart_filetype
-    real, intent(inout), dimension(d3i,d3j) :: dat1
-    real, intent(inout), dimension(d3i*ppnode,d3j) :: dat2
-    real, intent(inout), dimension(d3i,d3j,0:d3n-1) :: dat3
-    integer, intent(inout), dimension(d3t) :: reqt
-    integer, intent(in) :: mynode,nodemaster,nodes,nfile
-    integer, intent(in), dimension(numprocs) :: myi1p,myi2p,myj1p,myj2p
-
-    integer :: i,j,k,msk
-    integer :: reqs,index,index2,n,nn,nnn,fooi,fooj,proc,ierr,ntot,n1,n2,tag
-    logical :: recv1,recv2
-
-    DO k=numk1,numk2
-      IF(myid.ne.nodemaster)THEN
-!$omp parallel do default(shared)   &
-!$omp private(i,j)
-        do j=1,numj
-        do i=1,numi
-          dat1(i,j) = var(i,j,k)
-        enddo
-        enddo
-        call MPI_ISEND(dat1,d3i*d3j,MPI_REAL,nodemaster,k,MPI_COMM_WORLD,reqs,ierr)
-        call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-      ELSE
-        do proc=myid+1,myid+(ppnode-1)
-          call MPI_IRECV(dat3(1,1,proc),d3i*d3j,MPI_REAL,proc,k,MPI_COMM_WORLD,reqt(proc-myid),ierr)
-        enddo
-!$omp parallel do default(shared)   &
-!$omp private(i,j)
-        do j=1,numj
-        do i=1,numi
-          dat2(i,j)=var(i,j,k)
-        enddo
-        enddo
-        nn = 1
-        do while( nn.le.(ppnode-1) )
-          nn = nn + 1
-          call mpi_waitany(ppnode-1,reqt(1:ppnode-1),index,MPI_STATUS_IGNORE,ierr)
-          fooi = numi*index
-!$omp parallel do default(shared)   &
-!$omp private(i,j)
-          do j=1,numj
-          do i=1,numi
-            dat2(fooi+i,j)=dat3(i,j,nodemaster+index)
-          enddo
-          enddo
-        enddo
-        write(50) dat2
-      ENDIF
-    ENDDO
-
-    return
-    end subroutine writer2
-
-
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-
-
-    ! cm1r17-format restart files !
-    subroutine  readr2(numi,numj,numk1,numk2,nxr,nyr,var,aname,          &
-                      ni,nj,ngxy,myid,numprocs,nodex,nodey,orec,nfile,   &
-                      ncid,time_index,restart_format,restart_filetype,myi1p,myi2p,myj1p,myj2p,   &
-                      dat1,dat2,dat3,reqt,ppnode,d3n,d3t,mynode,nodemaster,nodes,d2i,d2j,d3i,d3j)
-    use mpi
-    implicit none
-
-    !-------------------------------------------------------------------
-    ! This subroutine reads restart files and then passes data 
-    ! to other processors if this is a MPI run. 
-    !-------------------------------------------------------------------
-
-    integer, intent(in) :: numi,numj,numk1,numk2,nxr,nyr
-    integer, intent(in) :: ppnode,d3n,d3t,d2i,d2j,d3i,d3j
-    real, intent(inout), dimension(1-ngxy:numi+ngxy,1-ngxy:numj+ngxy,numk1:numk2) :: var
-    character(len=8), intent(in) :: aname
-    integer, intent(in) :: ni,nj,ngxy,myid,numprocs,nodex,nodey
-    integer, intent(inout) :: orec,ncid
-    integer, intent(in) :: time_index,restart_format,restart_filetype
-    real, intent(inout), dimension(d3i,d3j) :: dat1
-    real, intent(inout), dimension(d3i*ppnode,d3j) :: dat2
-    real, intent(inout), dimension(d3i,d3j,0:d3n-1) :: dat3
-    integer, intent(inout), dimension(d3t) :: reqt
-    integer, intent(in) :: mynode,nodemaster,nodes,nfile
-    integer, intent(in), dimension(numprocs) :: myi1p,myi2p,myj1p,myj2p
-
-    integer :: i,j,k,msk
-    integer :: reqs,index,index2,n,nn,nnn,fooi,fooj,proc,ierr,ntot,n1,n2
-    integer :: tag
-    integer, dimension(mpi_status_size,ppnode-1) :: status1
-
-    DO k=numk1,numk2
-      IF(myid.ne.nodemaster)THEN
-        call MPI_IRECV(dat1,d3i*d3j,MPI_REAL,nodemaster,k,MPI_COMM_WORLD,reqs,ierr)
-        call MPI_WAIT(reqs,mpi_status_ignore,ierr)
-!$omp parallel do default(shared)   &
-!$omp private(i,j)
-        do j=1,numj
-        do i=1,numi
-          var(i,j,k) = dat1(i,j)
-        enddo
-        enddo
-      ELSE
-        read(50) dat2
-        do proc=myid+1,myid+(ppnode-1)
-          fooi = numi*(proc-myid)
-!$omp parallel do default(shared)   &
-!$omp private(i,j)
-          do j=1,numj
-          do i=1,numi
-            dat3(i,j,proc)=dat2(fooi+i,j)
-          enddo
-          enddo
-          call MPI_ISEND(dat3(1,1,proc),d3i*d3j,MPI_REAL,proc,k,MPI_COMM_WORLD,reqt(proc-myid),ierr)
-        enddo
-!$omp parallel do default(shared)   &
-!$omp private(i,j)
-        do j=1,numj
-        do i=1,numi
-          var(i,j,k)=dat2(i,j)
-        enddo
-        enddo
-        call mpi_waitall(ppnode-1,reqt(1:ppnode-1),status1,ierr)
-      ENDIF
-    ENDDO
-
-    return
-    end subroutine  readr2
-#endif
 
   END MODULE restart_module
+
