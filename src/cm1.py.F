@@ -1447,6 +1447,14 @@ subroutine cm1_init()
       allocate(q3dten_mp(ibm:iem,jbm:jem,kbm:kem,numq))
       qaten_mp=0
       q3dten_mp=0
+      allocate(t3d_mp(ibm:iem,jbm:jem,kbm:kem))
+      t3d_mp=0
+      allocate(t3dold(ibm:iem,jbm:jem,kbm:kem))
+      told=0
+      allocate(prsold(ibm:iem,jbm:jem,kbm:kem))
+      prsold=0
+      allocate(q3dold(ibm:iem,jbm:jem,kbm:kem,numq))
+      q3dold=0      
       allocate(   bud(nk) )
       bud = 0.0
       allocate(  bud2(nj) )
@@ -3225,6 +3233,11 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
             thaten_mp=tha
             qaten_mp=qa
             q3dten_mp=q3d
+            t3d_mp=(th0+th3d)*(pi0+pp3d)
+            t3dold=(th0+th3d)*(pi0+pp3d)
+            prsold=prs+prs0
+            q3dold=q3d
+            !print*, maxval(t3d_mp)
             call   mp_driver(nstep,dt,qbudget,asq,bsq,xh,ruh,xf,ruf,yh,rvh,yf,rvf,  &
                          mh,rmh,c1,c2,zh,mf,rmf,zf,rain,prate,pi0,th0,rho0,prs0,qv0,   &
                          rho,prs,dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,  &

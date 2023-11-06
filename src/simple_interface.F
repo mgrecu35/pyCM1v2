@@ -28,7 +28,8 @@ subroutine pycm1_init(ibo,ieo,jbo,jeo,kbo,keo,&
 end subroutine pycm1_init
 
 subroutine pytimestep(nsteps,time_out,imicro,ibo,ieo,jbo,jeo,&
-     kbo,keo,numqo,thaten_mp_out,th3dten_mp_out,qaten_mp_out,q3dten_mp_out,dt_out)
+     kbo,keo,numqo,thaten_mp_out,th3dten_mp_out,qaten_mp_out,q3dten_mp_out,dt_out,&
+     wout,q3dout,th3dout,prsout)
   use cm1vars
   implicit none
   integer :: nsteps, imicro
@@ -38,17 +39,40 @@ subroutine pytimestep(nsteps,time_out,imicro,ibo,ieo,jbo,jeo,&
   real, intent(out) :: qaten_mp_out(ibo:ieo,jbo:jeo,kbo:keo,numqo)
   real, intent(out) :: q3dten_mp_out(ibo:ieo,jbo:jeo,kbo:keo,numqo)
   real, intent(out) :: time_out, dt_out
+  real, intent(out) :: wout(ibo:ieo,jbo:jeo,kbo:keo+1)
+  real, intent(out) :: q3dout(ibo:ieo,jbo:jeo,kbo:keo,numqo)
+  real, intent(out) :: th3dout(ibo:ieo,jbo:jeo,kbo:keo)
+  real, intent(out) :: prsout(ibo:ieo,jbo:jeo,kbo:keo)
   call cm1_timestep(nsteps,time_out,imicro)
   time_out=mtime
   thaten_mp_out=thaten_mp
   th3dten_mp_out=th3dten_mp
   qaten_mp_out=qaten_mp
   q3dten_mp_out=q3dten_mp
+  wout=w3d
+  q3dout=q3dold
+  th3dout=t3dold
+  prsout=prsold    
   dt_out=dbldt    
       
 end subroutine pytimestep
 
+subroutine get_mp_aux(ibo,ieo,jbo,jeo,&
+     kbo,keo,numqo,prs_mp_out,t3d_mp_out,ppi3d)
+  use cm1vars
+  implicit none
+  integer :: nsteps, imicro
+  integer :: ibo,ieo,jbo,jeo,kbo,keo,numqo
+  real, intent(out) :: prs_mp_out(ibo:ieo,jbo:jeo,kbo:keo)
+  real, intent(out) :: t3d_mp_out(ibo:ieo,jbo:jeo,kbo:keo)
+  real, intent(out) :: ppi3d(ibo:ieo,jbo:jeo,kbo:keo)
+  t3d_mp_out=(th0+th3d)*(pi0+pp3d)
+  ppi3d=(pi0+pp3d)
+  prs_mp_out=prs    
+      
+end subroutine get_mp_aux
 
+      
 subroutine set_th3d_ten(nxi,nyi,nzi,th0ten,dtp,dt0p)
   use cm1vars
   implicit none
@@ -81,3 +105,140 @@ subroutine set_q3d_ten(nxi,nyi,nzi,numq0,qtenp,dtp,dt0p)
     enddo
   enddo
 end subroutine set_q3d_ten
+
+
+subroutine py_mp(ibo,ieo,jbo,jeo,&
+      kbo,keo,numqo,nzp,q3dp,t3dp,q3dtenp,t3dtenp,prsp,dtp,dzp)
+use cm1vars
+use MODULE_MP_MORR_TWO_MOMENT2      
+implicit none      
+integer :: ibo,ieo,jbo,jeo,kbo,keo,numqo,nzp
+real, intent(in) ::q3dp(ibo:ieo,jbo:jeo,kbo:keo,numqo)
+real, intent(in) ::t3dp(ibo:ieo,jbo:jeo,kbo:keo),prsp(ibo:ieo,jbo:jeo,kbo:keo)
+
+real, intent(out) ::q3dtenp(ibo:ieo,jbo:jeo,kbo:keo,numqo)
+real, intent(out) ::t3dtenp(ibo:ieo,jbo:jeo,kbo:keo)
+
+integer :: iqv,iqc,iqr,iqi,iqs,iqg,ini,ins,inr,ing,inc
+integer :: i1,j1,kb1
+real    :: dtp, dzq(nzp),dzp      
+iqv=1
+iqc=2
+iqr=3
+iqi=4
+iqs=5
+iqg=6
+ini=7
+ins=8
+inr=9
+ing=10
+inc=11
+kb1=1
+q3dtenp=q3dp
+t3dtenp=t3dp
+dzq=dzp      
+do i1=ibo+3,ieo-3
+ do j1=jbo+3,jeo-3     
+      call SIMPLE_MICRO3_2(q3dtenp(i1,j1,1:nzp,iqc),q3dtenp(i1,j1,1:nzp,iqi),&
+      q3dtenp(i1,j1,1:nzp,iqs),q3dtenp(i1,j1,1:nzp,iqr),&
+      t3dtenp(i1,j1,1:nzp),&
+      q3dtenp(i1,j1,1:nzp,iqv),prsp(i1,j1,1:nzp),dzq(1:nzp),   &
+      dtp,                                                   &
+      kb1,nzp,q3dtenp(i1,j1,1:nzp,iqg))
+  enddo
+enddo
+q3dtenp=q3dtenp-q3dp
+q3dtenp(:,:,:,7:10)=0      
+t3dtenp=(t3dtenp-t3dp)/(pi0+pp3d)      
+end subroutine py_mp
+
+
+subroutine micro_init()
+      use MODULE_MP_MORR_TWO_MOMENT2
+      call MORR_TWO_MOMENT_INIT2
+end subroutine micro_init
+
+
+subroutine py_qvs(ibo,ieo,jbo,jeo,&
+      kbo,keo,numqo,nzp,q3dp,t3dp,prsp,dtp,dzp,qvs3d,xxlv3d,xxls3d,cpm3d)
+use cm1vars
+use MODULE_MP_MORR_TWO_MOMENT2, only:getqvs      
+implicit none      
+integer :: ibo,ieo,jbo,jeo,kbo,keo,numqo,nzp
+real, intent(in) ::q3dp(ibo:ieo,jbo:jeo,kbo:keo,numqo)
+real, intent(in) ::t3dp(ibo:ieo,jbo:jeo,kbo:keo),prsp(ibo:ieo,jbo:jeo,kbo:keo)
+
+real, intent(out) ::qvs3d(ibo:ieo,jbo:jeo,kbo:keo)
+real, intent(out) :: xxls3d(ibo:ieo,jbo:jeo,kbo:keo)
+real, intent(out) :: xxlv3d(ibo:ieo,jbo:jeo,kbo:keo)
+real, intent(out) :: cpm3d(ibo:ieo,jbo:jeo,kbo:keo)
+      
+
+integer :: iqv,iqc,iqr,iqi,iqs,iqg,ini,ins,inr,ing,inc
+integer :: i1,j1,kb1,kk1
+real    :: dtp, dzq(nzp),dzp, xxls(nzp), xxlv(nzp), cpm(nzp)      
+iqv=1
+iqc=2
+iqr=3
+iqi=4
+iqs=5
+iqg=6
+ini=7
+ins=8
+inr=9
+ing=10
+inc=11
+kb1=1
+!q3dtenp=q3dp
+!      t3dtenp=t3dp
+!      (T3D,QV3D,QVS,PRES,KTS,KTE)
+dzq=dzp      
+do i1=ibo+3,ieo-3
+ do j1=jbo+3,jeo-3     
+      call getqvs(t3dp(i1,j1,1:nzp),q3dp(i1,j1,1:nzp,iqv),&
+      qvs3d(i1,j1,1:nzp),prsp(i1,j1,1:nzp),&
+      xxls,xxlv,cpm,kb1,nzp)
+      xxls3d(i1,j1,1:nzp)=xxls
+      xxlv3d(i1,j1,1:nzp)=xxlv
+      cpm3d(i1,j1,1:nzp)=cpm
+  enddo
+enddo
+end subroutine py_qvs
+
+
+subroutine py_autosed(ibo,ieo,jbo,jeo,&
+      kbo,keo,numqo,nzp,dt,dzp)
+use cm1vars, only: th0, th3d, pi0, pp3d, prs, qa,q3d,rho
+use MODULE_MP_MORR_TWO_MOMENT2, only:autoconv_sed      
+implicit none
+      
+integer :: ibo,ieo,jbo,jeo,kbo,keo,numqo,nzp
+
+real :: dzq(1:nzp),rho3d(ibo:ieo,jbo:jeo,kbo:keo)
+real :: dt,dzp
+integer :: iqv,iqc,iqr,iqi,iqs,iqg,ini,ins,inr,ing,inc
+integer :: i1,j1,kb1,kk1
+
+iqv=1
+iqc=2
+iqr=3
+iqi=4
+iqs=5
+iqg=6
+ini=7
+ins=8
+inr=9
+ing=10
+inc=11
+kb1=1
+!print*, rho(1,1,1:nzp)
+!stop
+dzq=dzp      
+do i1=ibo+3,ieo-3
+ do j1=jbo+3,jeo-3     
+      call autoconv_sed(kb1,nzp,q3d(i1,j1,1:nzp,iqc),q3d(i1,j1,1:nzp,iqr),&
+      q3d(i1,j1,1:nzp,iqi),q3d(i1,j1,1:nzp,iqs),rho(i1,j1,1:nzp),dzq,dt)
+ enddo
+enddo
+qa=q3d      
+end subroutine py_autosed

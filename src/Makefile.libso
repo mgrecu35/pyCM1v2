@@ -127,7 +127,7 @@ OMP  = -DOPENMP
 #-----------------------------------------------------------------------------
 
 SRC   = constants.F \
-	input.F \
+	input.F forcing_module.F\
 	adv.F \
 	adv_routines.F \
 	anelp.F \
@@ -209,7 +209,8 @@ SRC   = constants.F \
 	module_bl_mynn.F \
 	module_sf_mynn.F \
 	module_bl_myjpbl.F \
-	module_sf_myjsfc.F
+	module_sf_myjsfc.F \
+	
 
 OBJS = $(addsuffix .o, $(basename $(SRC)))
 
@@ -223,7 +224,7 @@ all : cm1
 
 cm1 :			$(OBJS)
 	$(AR) onefile.F $(SRC) 
-	gfortran -shared -o cm1.so $(OBJS) $(OUTPUTLIB) $(LINKOPTS) -lgfortran -lgomp
+	gfortran -shared -o cm1.so $(OBJS) $(OUTPUTLIB) $(LINKOPTS) src-simple-mp/libmorisson.so -lgfortran -lgomp
 	mv onefile.F ../run
 
 .F.o:
