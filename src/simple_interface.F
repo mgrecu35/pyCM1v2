@@ -6,7 +6,7 @@ subroutine pycm1_init(ibo,ieo,jbo,jeo,kbo,keo,&
   implicit none
   integer, intent(out) :: ibo,ieo,jbo,jeo,kbo,keo,&
        ibmo,iemo,jbmo,jemo,kbmo,kemo,numqo
- 
+  
   call cm1_init()
   ibo=ib
   ieo=ie
@@ -57,6 +57,44 @@ subroutine pytimestep(nsteps,time_out,imicro,ibo,ieo,jbo,jeo,&
       
 end subroutine pytimestep
 
+subroutine get_init_cond(ibo,ieo,jbo,jeo,&
+     kbo,keo,numqo,t3d_out,q3d_out,w3d_out,ppi_out)
+  use cm1vars
+  implicit none
+  integer :: nsteps, imicro
+  integer :: ibo,ieo,jbo,jeo,kbo,keo,numqo
+  real, intent(out) :: q3d_out(ibo:ieo,jbo:jeo,kbo:keo,numqo)
+  real, intent(out) :: t3d_out(ibo:ieo,jbo:jeo,kbo:keo)
+  real, intent(out) :: w3d_out(ibo:ieo,jbo:jeo,kbo:keo+1)    
+  real, intent(out) :: ppi_out(ibo:ieo,jbo:jeo,kbo:keo)
+  t3d_out=(th3d)
+  q3d_out=(q3d)
+  w3d_out=w3d
+  ppi_out=pp3d   
+      
+end subroutine get_init_cond
+
+subroutine set_init_cond(ibo,ieo,jbo,jeo,&
+     kbo,keo,numqo,t3d_out,q3d_out,w3d_out,ppi_out)
+  use cm1vars
+  implicit none
+  integer :: nsteps, imicro
+  integer :: ibo,ieo,jbo,jeo,kbo,keo,numqo
+  real  :: q3d_out(ibo:ieo,jbo:jeo,kbo:keo,numqo)
+  real  :: t3d_out(ibo:ieo,jbo:jeo,kbo:keo)
+  real  :: w3d_out(ibo:ieo,jbo:jeo,kbo:keo+1)    
+  real  :: ppi_out(ibo:ieo,jbo:jeo,kbo:keo)
+  th3d=t3d_out
+  tha=t3d_out    
+  q3d=q3d_out
+  qa=q3d_out
+  w3d=w3d_out
+  wa=w3d_out    
+  pp3d=ppi_out
+  ppi=ppi_out    
+end subroutine set_init_cond
+      
+      
 subroutine get_mp_aux(ibo,ieo,jbo,jeo,&
      kbo,keo,numqo,prs_mp_out,t3d_mp_out,ppi3d)
   use cm1vars
@@ -71,6 +109,22 @@ subroutine get_mp_aux(ibo,ieo,jbo,jeo,&
   prs_mp_out=prs    
       
 end subroutine get_mp_aux
+
+subroutine get_t0(ibo,ieo,jbo,jeo,&
+     kbo,keo,numqo,t3d_out,prs0_out,qv0_out,pi0_out)
+  use cm1vars
+  implicit none
+  integer :: nsteps, imicro
+  integer :: ibo,ieo,jbo,jeo,kbo,keo,numqo
+  real, intent(out) :: t3d_out(ibo:ieo,jbo:jeo,kbo:keo),&
+      prs0_out(ibo:ieo,jbo:jeo,kbo:keo),qv0_out(ibo:ieo,jbo:jeo,kbo:keo),&
+      pi0_out(ibo:ieo,jbo:jeo,kbo:keo)
+  t3d_out=(th0)
+  pi0_out=(pi0)
+  prs0_out=prs0
+  qv0_out=qv0    
+end subroutine get_t0
+      
 
       
 subroutine set_th3d_ten(nxi,nyi,nzi,th0ten,dtp,dt0p)
