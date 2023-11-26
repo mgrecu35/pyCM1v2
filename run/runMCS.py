@@ -23,41 +23,110 @@ ib,ie,jb,je,kb,ke,\
 
 th3d0,prs0,qv0,pi0=cm1.get_t0(ib,ie,jb,je,kb,ke,numq)
 th3d,q3d,w3d,ppi=cm1.get_init_cond(ib,ie,jb,je,kb,ke,numq)
+t3d0=th3d0*pi0
+rho_in=prs0/(287*t3d0)
+
 iqv=0
 iqc=1
 iqr=2
 iqi=3
 iqs=4
 iqg=5
-with Dataset('wrf_mcs_ok-06-25_03:00:00-001_080_125_188_100.nc') as f:
+iqnr=8
+iqng=9
+iqns=7
+with Dataset('wrf_mcs_ok-06-25_03:00:00000_080_125_188_100.nc') as f:
     qv=f.variables['qv'][:,:]
     qr=f.variables['qr'][:,:]
     qg=f.variables['qg'][:,:]
     qs=f.variables['qs'][:,:]
+    qnr=f.variables['qnr'][:,:]
+    qng=f.variables['qng'][:,:]
+    qns=f.variables['qns'][:,:]
     th=f.variables['t'][:,:]
     h=f.variables['h'][:,:]
     w=f.variables['w'][:,:]
     p=f.variables['p'][:,:]
+    u=f.variables['u'][:,:]
+    v=f.variables['v'][:,:]
 
-cm1.set_init_cond(ib,ie,jb,je,kb,ke,th3d,q3d,w3d,ppi)
+nx1=qv.shape[0]
 p00=1e5
 rd= 287.0
 cp= 1015.0
+u3d=np.zeros((ie-ib+1+1,je-jb+1,ke-kb+1),np.float32)
+v3d=np.zeros((ie-ib+1,je-jb+1+1,ke-kb+1),np.float32)
+for i in range(nx1):
+    hm=0.5*(h[i,1:]+h[i,:-1])
+    qv1=np.interp(zm,hm,qv[i,:])
+    qr1=np.interp(zm,hm,qr[i,:])
+    qg1=np.interp(zm,hm,qg[i,:])
+    qs1=np.interp(zm,hm,qs[i,:])
+    qns1=np.interp(zm,hm,qns[i,:])
+    qnr1=np.interp(zm,hm,qnr[i,:])
+    qng1=np.interp(zm,hm,qng[i,:])
+    q3d[3+i,:,1:-1,iqv]=qv1
+    q3d[3+i,:,1:-1,iqr]=qr1
+    q3d[3+i,:,1:-1,iqg]=qg1
+    q3d[3+i,:,1:-1,iqs]=qs1
+    q3d[3+i,:,1:-1,iqns]=qns1
+    q3d[3+i,:,1:-1,iqnr]=qnr1
+    q3d[3+i,:,1:-1,iqng]=qng1
+    u1=np.interp(zm,hm,u[i,:])
+    v1=np.interp(zm,hm,v[i,:])
+    ang=-55/180*np.pi
+    u3d[3+i,:,1:-1]=u1*np.cos(ang)+v1*np.sin(ang)
+    v3d[3+i,:,1:-1]=0.0
+    th1=np.interp(zm,hm,th[i,:])
+    th3d[3+i,:,1:-1]=th1-th3d0[3+i,3,1:-1]
+    w1=np.interp(zf,h[i,:],w[i,:])
+    w3d[3+i,3:-3,1:-1]=w1
+    p1=np.interp(zm,hm,p[i,:])
+    prs0[3+i,3:-3,1:-1]=p1
+    ppi1=(p1/1e5)**(rd/cp)
+    t1d=th1*ppi1
+    rho1d=p1/(rd*t1d)
+    rho_in[3+i,3:-3,1:-1]=rho1d
+    ppi[3+i,3:-3,1:-1]=ppi1-pi0[3+i,3,1:-1]
+cm1.set_init_cond(ib,ie,jb,je,kb,ke,th3d,q3d,w3d,u3d,v3d,ppi)
+
+cm1.set_prs(ib,ie,jb,je,kb,ke,prs0)
+cm1.set_rho(ib,ie,jb,je,kb,ke,rho_in)
 
 print(jb,je)
 imicro=1
 cm1.micro_init()
 m_time=0
-while m_time<60:
+lasttime=0
+q3dtenL=[]
+th3dtenL=[]
+w3dL=[]
+q3dL=[]
+th3dL=[]
+prsL=[]
+
+while m_time<2*3600:
     m_time,thaten_mp,th3dten_mp,qaten_mp,q3dten_mp,dt_out,\
     w3d,q3d,t3d,prs=cm1.pytimestep(1,imicro,ib,ie,jb,je,kb,ke,numq)
 
-    #if m_time-lasttime<=30 and m_time+dt_out>lasttime+30:
-    #    q3dtenL.append(q3dten_mp[3:-3,3:-3,1:-1,:].copy())
-    #    th3dtenL.append(th3dten_mp[3:-3,3:-3,1:-1].copy())
-    #    w3dL.append(w3d[3:-3,3:-3,1:-1].copy())
-    #    q3dL.append(q3d[3:-3,3:-3,1:-1,:].copy())
-    #    th3dL.append(t3d[3:-3,3:-3,1:-1].copy())
-    #    prsL.append(prs[3:-3,3:-3,1:-1].copy())
-    #    lasttime=m_time
+    if m_time-lasttime<=30 and m_time+dt_out>lasttime+30:
+        q3dtenL.append(q3dten_mp[3:-3,3:-3,1:-1,:].copy())
+        th3dtenL.append(th3dten_mp[3:-3,3:-3,1:-1].copy())
+        w3dL.append(w3d[3:-3,3:-3,1:-1].copy())
+        q3dL.append(q3d[3:-3,3:-3,1:-1,:].copy())
+        th3dL.append(t3d[3:-3,3:-3,1:-1].copy())
+        prsL.append((prs-prs0)[3:-3,3:-3,1:-1].copy())
+        lasttime=m_time
 
+import xarray as xr
+q3dtenL_=xr.DataArray(q3dtenL)[:,:,:,:,:]
+th3dtenL_=xr.DataArray(th3dtenL)[:,:,:,:]
+w3dL_=xr.DataArray(w3dL,dims=['dim_0','dim_1','dim_2','dim_31'])[:,:,:,:]
+q3dL_=xr.DataArray(q3dL)[:,:,:,:]
+th3dL_=xr.DataArray(th3dL)[:,:,:,:]
+prsL_=xr.DataArray(prsL)[:,:,:,:]
+d={"q3dten":q3dtenL_,"th3dten":th3dtenL_,"w3d":w3dL_,"q3d":q3dL_,"th3d":th3dL_,"prs":prsL_}
+ds=xr.Dataset(d)
+ds.to_netcdf('mcs_ten.nc',encoding={'q3dten':{'zlib':True,'complevel':5},'th3dten':{'zlib':True,'complevel':5},\
+                                            'w3d':{'zlib':True,'complevel':5},'q3d':{'zlib':True,'complevel':5},\
+                                            'th3d':{'zlib':True,'complevel':5},'prs':{'zlib':True,'complevel':5}})
