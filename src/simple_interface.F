@@ -43,7 +43,9 @@ subroutine pytimestep(nsteps,time_out,imicro,ibo,ieo,jbo,jeo,&
   real, intent(out) :: q3dout(ibo:ieo,jbo:jeo,kbo:keo,numqo)
   real, intent(out) :: th3dout(ibo:ieo,jbo:jeo,kbo:keo)
   real, intent(out) :: prsout(ibo:ieo,jbo:jeo,kbo:keo)
+    
   call cm1_timestep(nsteps,time_out,imicro)
+  !print*, nsteps,time_out,imicro      
   time_out=mtime
   thaten_mp_out=thaten_mp
   th3dten_mp_out=th3dten_mp
@@ -75,24 +77,50 @@ subroutine get_init_cond(ibo,ieo,jbo,jeo,&
 end subroutine get_init_cond
 
 subroutine set_init_cond(ibo,ieo,jbo,jeo,&
-     kbo,keo,numqo,t3d_out,q3d_out,w3d_out,ppi_out)
+     kbo,keo,numqo,t3d_out,q3d_out,w3d_out,u3d_out,v3d_out,ppi_out)
   use cm1vars
   implicit none
   integer :: nsteps, imicro
   integer :: ibo,ieo,jbo,jeo,kbo,keo,numqo
   real  :: q3d_out(ibo:ieo,jbo:jeo,kbo:keo,numqo)
   real  :: t3d_out(ibo:ieo,jbo:jeo,kbo:keo)
-  real  :: w3d_out(ibo:ieo,jbo:jeo,kbo:keo+1)    
+  real  :: w3d_out(ibo:ieo,jbo:jeo,kbo:keo+1)
+  real  :: u3d_out(ibo:ieo+1,jbo:jeo,kbo:keo)
+  real  :: v3d_out(ibo:ieo,jbo:jeo+1,kbo:keo)    
   real  :: ppi_out(ibo:ieo,jbo:jeo,kbo:keo)
   th3d=t3d_out
   tha=t3d_out    
   q3d=q3d_out
   qa=q3d_out
   w3d=w3d_out
-  wa=w3d_out    
+  wa=w3d_out
+  u3d=u3d_out
+  ua=u3d_out
+  v3d=v3d_out
+  va=v3d_out    
   pp3d=ppi_out
   ppi=ppi_out    
 end subroutine set_init_cond
+
+subroutine make_q_nonneg()
+  use cm1vars
+  implicit none
+
+  integer :: l
+  do i=ib,ie
+     do j=jb,je
+        do k=ke,kb
+           do l=1,6
+              if(q3d(i,j,k,l)<0) q3d(i,j,k,l)=0
+              if(qa(i,j,k,l)<0) qa(i,j,k,l)=0
+           enddo
+         enddo
+     enddo
+  enddo
+      
+  
+end subroutine make_q_nonneg
+            
       
       
 subroutine get_mp_aux(ibo,ieo,jbo,jeo,&
@@ -252,6 +280,7 @@ do i1=ibo+3,ieo-3
       call getqvs(t3dp(i1,j1,1:nzp),q3dp(i1,j1,1:nzp,iqv),&
       qvs3d(i1,j1,1:nzp),prsp(i1,j1,1:nzp),&
       xxls,xxlv,cpm,kb1,nzp)
+      
       xxls3d(i1,j1,1:nzp)=xxls
       xxlv3d(i1,j1,1:nzp)=xxlv
       cpm3d(i1,j1,1:nzp)=cpm
@@ -296,3 +325,48 @@ do i1=ibo+3,ieo-3
 enddo
 qa=q3d      
 end subroutine py_autosed
+
+subroutine set_prs(ibmo,iemo,jbmo,jemo,kbmo,kemo,prs_in)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(in) :: prs_in(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+prs=prs_in
+end subroutine set_prs
+
+subroutine set_rho(ibmo,iemo,jbmo,jemo,kbmo,kemo,rho_in)
+use cm1vars
+implicit none
+integer :: ibmo,iemo,jbmo,jemo,kbmo,kemo
+real, intent(in) :: rho_in(ibmo:iemo,jbmo:jemo,kbmo:kemo)
+rho=rho_in
+end subroutine set_rho
+
+
+subroutine get_saturation3d(ibo,ieo,jbo,jeo,kbo,keo,&
+      qvs3d,t3d_in,prs_in)
+use cm1vars
+implicit none      
+real :: t3d1,pres1,qvs1,qvi1
+integer :: ibo,ieo,jbo,jeo,kbo,keo      
+real, intent(in) ::t3d_in(ibo:ieo,jbo:jeo,kbo:keo),&
+      prs_in(ibo:ieo,jbo:jeo,kbo:keo)
+
+real, intent(out) ::qvs3d(ibo:ieo,jbo:jeo,kbo:keo)
+
+
+ do i=1,ieo-3
+   do j=1,jeo-3
+      do k=1,keo-1
+          call saturation_new(t3d_in(i,j,k),prs_in(i,j,k),qvs3d(i,j,k),qvi1)
+      enddo
+   enddo
+ enddo
+      
+ !     print*, maxval(t3d_in)
+ !     print*, maxval(prs_in)
+ !     print*, maxval(qvs3d)
+end subroutine get_saturation3d
+!
+
+      

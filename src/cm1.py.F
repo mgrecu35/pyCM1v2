@@ -1454,7 +1454,11 @@ subroutine cm1_init()
       allocate(prsold(ibm:iem,jbm:jem,kbm:kem))
       prsold=0
       allocate(q3dold(ibm:iem,jbm:jem,kbm:kem,numq))
-      q3dold=0      
+      q3dold=0
+      allocate(q3d_sed(ibm:iem,jbm:jem,kbm:kem,numq))
+      q3d_sed=0
+      allocate(th3dold(ibm:iem,jbm:jem,kbm:kem))
+      th3dold=0
       allocate(   bud(nk) )
       bud = 0.0
       allocate(  bud2(nj) )
@@ -2969,6 +2973,7 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
       use eddy_recycle
       use lsnudge_module
       use cm1vars
+      use sed
 #ifdef MPI
       use mpi
 #endif
@@ -3228,16 +3233,18 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
         ! qv only:
         call pdefq(    0.0,asq(1),ruh,rvh,rmh,rho,q3d(ib,jb,kb,1))
       else
+         t3dold=(th0+th3d)*(pi0+pp3d)
+         prsold=prs
+         q3dold=q3d
+         th3dold=th3d
          if (imicro==1) then
             th3dten_mp=th3d
             thaten_mp=tha
             qaten_mp=qa
             q3dten_mp=q3d
             t3d_mp=(th0+th3d)*(pi0+pp3d)
-            t3dold=(th0+th3d)*(pi0+pp3d)
-            prsold=prs+prs0
-            q3dold=q3d
-            !print*, maxval(t3d_mp)
+!     print*, maxval(t3d_mp)
+            ised=0
             call   mp_driver(nstep,dt,qbudget,asq,bsq,xh,ruh,xf,ruf,yh,rvh,yf,rvf,  &
                          mh,rmh,c1,c2,zh,mf,rmf,zf,rain,prate,pi0,th0,rho0,prs0,qv0,   &
                          rho,prs,dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,  &
@@ -3251,6 +3258,23 @@ subroutine cm1_timestep(nsteps,time_out,imicro)
             thaten_mp=tha-thaten_mp
             qaten_mp=qa-qaten_mp
             q3dten_mp=q3d-q3dten_mp
+            
+            ised=1
+            !tha=th3dold
+            !th3d=th3dold
+            !qa=q3dold
+            !q3d=q3dold
+            !prs=prsold-prs0
+            !call   mp_driver(nstep,dt,qbudget,asq,bsq,xh,ruh,xf,ruf,yh,rvh,yf,rvf,  &
+            !             mh,rmh,c1,c2,zh,mf,rmf,zf,rain,prate,pi0,th0,rho0,prs0,qv0,   &
+            !             rho,prs,dum1,dum2,dum3,dum4,dum5,dum6,dum7,dum8,  &
+            !             w3d,ppi,pp3d,ppten,sten,tha,th3d,thten,qa,q3d,qten,   &
+            !             p3a,p3o,dum2d1,dum2d2,dum2d3,dum2d4,dum2d5,  &
+            !             effc,effi,effs,effr,effg,effis,    &
+            !             tdiag,qdiag,out2d,out3d,  &
+            !             dowriteout,dorad,dotdwrite,doazimwrite,dorestart,  &
+            !             getdbz,getvt,dotbud,doqbud)
+            ! q3dten_mp=q3d-q3dten_mp
             !print*, maxval(thten_mp), minval(thten_mp), 'thten'             
                          
           endif
