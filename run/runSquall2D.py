@@ -51,19 +51,31 @@ iqnr=8
 iqng=9
 iqns=7
 imicro=1
+m_time=0
+lasttime=0
 while m_time<10800:
     m_time,thaten_mp,th3dten_mp,qaten_mp,q3dten_mp,dt_out,\
     w3d,q3d,t3d,prs=cm1.pytimestep(1,imicro,ib,ie,jb,je,kb,ke,numq)
-    q3dten_mp*=0
-    th3dten_mp*=0
-    if m_time>10800:
-        qvs3d,xxlv,xxls,cpm = cm1.get_saturation3d(ib,ie,jb,je,kb,ke,t3d,prs0,q3d[:,:,:,0])
-        sat_ratio=q3d[3:-3,3:-3,1:-1,iqv]/qvs3d[3:-3,3:-3,1:-1]
-        asat=np.nonzero(sat_ratio>1)
-        dqc=q3d[3:-3,3:-3,1:-10,0][asat]-qvs3d[3:-3,3:-3,1:-10][asat]
-        q3dten_mp[3:-3,3:-3,1:-10,iqv][asat]-=0.125*dqc
-        q3dten_mp[3:-3,3:-3,1:-10,iqc][asat]+=0.125*dqc
-        th3dten_mp[3:-3,3:-3,1:-1][asat]+=0.125*xxlv[3:-3,3:-3,1:-1][asat]/cpm[3:-3,3:-3,1:-1][asat]*dqc\
-        /pi0[3:-3,3:-3,1:-1][asat]
-        cm1.set_th3d_ten(th3dten_mp,dt_out,dt_out)
-        cm1.set_q3d_ten(q3dten_mp,dt_out,dt_out)
+    if m_time-lasttime<=30 and m_time+dt_out>lasttime+30:
+        q3dtenL.append(q3dten_mp[3:-3,3:-3,1:-1,:].copy())
+        th3dtenL.append(th3dten_mp[3:-3,3:-3,1:-1].copy())
+        w3dL.append(w3d[3:-3,3:-3,1:-1].copy())
+        q3dL.append(q3d[3:-3,3:-3,1:-1,:].copy())
+        th3dL.append(t3d[3:-3,3:-3,1:-1].copy())
+        prsL.append((prs)[3:-3,3:-3,1:-1].copy())
+        lasttime=m_time
+        
+        
+import xarray as xr
+if 1==1:
+    q3dtenL_=xr.DataArray(q3dtenL)[:,:,:,:,:]
+    th3dtenL_=xr.DataArray(th3dtenL)[:,:,:,:]
+    w3dL_=xr.DataArray(w3dL,dims=['dim_0','dim_1','dim_2','dim_31'])[:,:,:,:]
+    q3dL_=xr.DataArray(q3dL)[:,:,:,:]
+    th3dL_=xr.DataArray(th3dL)[:,:,:,:]
+    prsL_=xr.DataArray(prsL)[:,:,:,:]
+    d={"q3dten":q3dtenL_,"th3dten":th3dtenL_,"w3d":w3dL_,"q3d":q3dL_,"th3d":th3dL_,"prs":prsL_}
+    ds=xr.Dataset(d)
+    ds.to_netcdf('squall_morrison_ten.nc',encoding={'q3dten':{'zlib':True,'complevel':5},'th3dten':{'zlib':True,'complevel':5},\
+                                            'w3d':{'zlib':True,'complevel':5},'q3d':{'zlib':True,'complevel':5},\
+                                            'th3d':{'zlib':True,'complevel':5},'prs':{'zlib':True,'complevel':5}})

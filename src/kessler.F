@@ -1,3 +1,24 @@
+subroutine latent_heat_k(xxlv,xxls,cpm,t3d,qv3d)
+  implicit none
+  real,intent(out) :: xxlv,xxls,cpm
+  real :: t3d,qv3d,cp,r,rv
+
+  R = 287.15
+  RV = 461.5
+  CP = 1005.
+  
+! LATENT HEAT OF VAPORATION
+  
+  XXLV = 3.1484E6-2370.*T3D
+
+! LATENT HEAT OF SUBLIMATION
+
+  !XLF(K) = XXLS(K)-XXLV(K)
+  XXLS = 3.15E6-2370.*T3D+0.3337E6
+  
+  CPM = CP*(1.+0.887*QV3D)
+end subroutine latent_heat_k
+
   MODULE kessler_module
 
   implicit none
@@ -7,7 +28,7 @@
 
       subroutine kessler(dt,tauto,taccr,tevar,ruh,rvh,rmh,pi0,th0,tmp,   &
                          rho,rr,pp3d,th3d,prs,                        &
-                         qv3d,qc3d,qr3d)
+                         qv3d,qc3d,qr3d,qs3d)
       use input
       use constants
       implicit none
@@ -18,13 +39,14 @@
       real, dimension(jb:je) :: rvh
       real, dimension(ib:ie,jb:je,kb:ke) :: rmh,pi0,th0
       real, dimension(ib:ie,jb:je,kb:ke) :: tmp,rho,rr,pp3d,    &
-                                            th3d,prs,qv3d,qc3d,qr3d
+                                            th3d,prs,qv3d,qc3d,qr3d,qs3d
 
       integer :: i,j,k
       real :: qvnew,qcnew,qrnew
       real :: ar,cr,esl,qvs,er,term1,cpml,cvml,rm,tem
       double precision :: dum
       double precision, dimension(nk) :: bud1,bud2,bud3
+      real :: t1,xxlv,xxls,cpm, XLF
 
 !-------------------------------------------------------------------
 
@@ -114,7 +136,22 @@
         qv3d(i,j,k)=qvnew
         qc3d(i,j,k)=qcnew
         qr3d(i,j,k)=qrnew
-
+        t1=(th0(i,j,k)+th3d(i,j,k))*(pi0(i,j,k)+pp3d(i,j,k))
+        call latent_heat_k(xxlv,xxls,cpm,t1,qv3d(i,j,k))
+        if((th0(i,j,k)+th3d(i,j,k))*(pi0(i,j,k)+pp3d(i,j,k))<273.15) then
+          if(qr3d(i,j,k)>0.0001) then
+            th3d(i,j,k)=th3d(i,j,k)+(xxlv-xxls)*(qr3d(i,j,k)-0.0001)/(cpm)*(pi0(i,j,k)+pp3d(i,j,k))
+            qs3d(i,j,k)=qs3d(i,j,k)+qr3d(i,j,k)-0.0001
+            qr3d(i,j,k)=0.0001
+          endif
+        endif
+        if((th0(i,j,k)+th3d(i,j,k))*(pi0(i,j,k)+pp3d(i,j,k))>=273.15) then
+          if (qs3d(i,j,k)>0.) then
+            th3d(i,j,k)=th3d(i,j,k)-(xxlv-xxls)*(qs3d(i,j,k))/(cpm)*(pi0(i,j,k)+pp3d(i,j,k))
+            qr3d(i,j,k)=qr3d(i,j,k)+qs3d(i,j,k)
+            qs3d(i,j,k)=0.0
+          endif
+        endif
       enddo
       enddo
       enddo
@@ -365,14 +402,15 @@
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 
-      subroutine k_fallout(rho,qr3d,vr)
+      subroutine k_fallout(rho,qr3d,vr,temp)
       use input
       use constants
       implicit none
  
-      real, dimension(ib:ie,jb:je,kb:ke) :: rho,qr3d,vr
+      real, dimension(ib:ie,jb:je,kb:ke) :: rho,qr3d,vr,temp
  
       integer i,j,k
+      real :: v1, v2, f
 
 !--------------------------------------------------------------------
 !  Get fall velocities
@@ -384,8 +422,24 @@
         do i=1,ni
           vr(i,j,k)=0.0
           if(qr3d(i,j,k).gt.1.0e-12)then
-            vr(i,j,k)=14.34*((rho(i,j,k)*qr3d(i,j,k))**0.1346)    &
-                           *sqrt(1.15/rho(i,j,k))
+             !if(temp(i,j,k)>275.15) then
+                vr(i,j,k)=14.34*((rho(i,j,k)*qr3d(i,j,k))**0.1346)    &
+                *sqrt(1.15/rho(i,j,k))
+             !else
+              !  if(temp(i,j,k)<273.15) then
+                !vterm_snow(k)=2.0*(1e3*qs3d(k))**0.1*(rho(1)/rho(k))**0.5
+                !   vr(i,j,k)=2.0*((1e3*rho(i,j,k)*qr3d(i,j,k))**0.1)    &
+                !   *sqrt(1.15/rho(i,j,k))
+              !  else
+              !     v1=14.34*((rho(i,j,k)*qr3d(i,j,k))**0.1346)    &
+              !     *sqrt(1.15/rho(i,j,k))
+              !     v2=2.0*((1e3*rho(i,j,k)*qr3d(i,j,k))**0.1)    &
+              !     *sqrt(1.15/rho(i,j,k))
+              !     f=(temp(i,j,k)-273.5)/2.
+              !     vr(i,j,k)=f*v1+(1-f)*v2
+              !  endif
+                
+             !endif
           endif
         enddo
         enddo
@@ -395,6 +449,52 @@
  
       end subroutine k_fallout
 
+      subroutine k_fallout_snow(rho,qr3d,vr,temp)
+        use input
+        use constants
+        implicit none
+   
+        real, dimension(ib:ie,jb:je,kb:ke) :: rho,qr3d,vr,temp
+   
+        integer i,j,k
+        real :: v1, v2, f
+  
+  !--------------------------------------------------------------------
+  !  Get fall velocities
+  
+  !$omp parallel do default(shared)   &
+  !$omp private(i,j,k)
+          do k=1,nk
+          do j=1,nj
+          do i=1,ni
+            vr(i,j,k)=0.0
+            if(qr3d(i,j,k).gt.1.0e-12)then
+               !if(temp(i,j,k)>275.15) then
+                  vr(i,j,k)=2.0*((1e3*qr3d(i,j,k))**0.1)    &
+                  *sqrt(1.15/rho(i,j,k))
+               !else
+                !  if(temp(i,j,k)<273.15) then
+                  !vterm_snow(k)=2.0*(1e3*qs3d(k))**0.1*(rho(1)/rho(k))**0.5
+                  !   vr(i,j,k)=2.0*((1e3*rho(i,j,k)*qr3d(i,j,k))**0.1)    &
+                  !   *sqrt(1.15/rho(i,j,k))
+                !  else
+                !     v1=14.34*((rho(i,j,k)*qr3d(i,j,k))**0.1346)    &
+                !     *sqrt(1.15/rho(i,j,k))
+                !     v2=2.0*((1e3*rho(i,j,k)*qr3d(i,j,k))**0.1)    &
+                !     *sqrt(1.15/rho(i,j,k))
+                !     f=(temp(i,j,k)-273.5)/2.
+                !     vr(i,j,k)=f*v1+(1-f)*v2
+                !  endif
+                  
+               !endif
+            endif
+          enddo
+          enddo
+          enddo
+  
+        if(timestats.ge.1) time_fall=time_fall+mytime()
+   
+        end subroutine k_fallout_snow
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -476,7 +576,66 @@
 
       end subroutine fallout
 
+  subroutine fallout_snow(dt,ruh,rvh,zh,mh,mf,rr,rho,   &
+        q3d,vq)
+  use input
+  use constants
+  implicit none
 
+  real :: dt
+
+  real, dimension(ib:ie) :: ruh
+  real, dimension(jb:je) :: rvh
+  real, dimension(ib:ie,jb:je,kb:ke) :: zh,mh
+  real, dimension(ib:ie,jb:je,kb:ke+1) :: mf
+  real, dimension(ib:ie,jb:je,nrain) :: rain
+  real, dimension(ib:ie,jb:je,kb:ke) :: rr,rho,q3d,vq
+
+  integer :: i,j,k,n,nr,nrk
+  real, dimension(-1:nk+3):: rq
+  real, dimension(0:nk) :: ffk
+  real, dimension(nk) :: qtmp
+
+  integer :: nfall
+  real :: crmax,dtfall
+
+  double precision :: tem
+  double precision, dimension(nj) :: bud
+
+!--------------------------------------------------------------------
+
+!$omp parallel do default(shared)            &
+!$omp private(i,j,k,crmax,nfall,rq,n,dtfall,nr)
+  do j=1,nj
+  do i=1,ni
+  crmax = 0.0
+  do k=1,nk
+  crmax = max( crmax , vq(i,j,k)*dt*rdz*mh(i,j,k) )
+  enddo
+  nfall = max( 1 , int(crmax+1.0) )
+! cm1r17:  following code is needed if nfall is large.
+!  - below edge of falling precip, set fallspeed to
+!    value at gridpoint above:
+  do k=(nk-1),1,-1
+  if( q3d(i,j,k).lt.1.0e-8 ) vq(i,j,k) = vq(i,j,k+1)
+  enddo
+  dtfall=dt/nfall
+  do n=1,nfall
+    do k=1,nk
+      rq(k)=rho(i,j,k)*vq(i,j,k)*max(0.0,q3d(i,j,k))
+    enddo
+    rq(nk+1)=0.0
+    do k=1,nk
+      q3d(i,j,k)=q3d(i,j,k)+dtfall*(rq(k+1)-rq(k))   &
+                    *rdz*mh(i,j,k)/rho(i,j,k)
+    enddo
+  
+  enddo
+  enddo
+  enddo
+
+
+  end subroutine fallout_snow
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

@@ -176,7 +176,9 @@
           call pdefq(    0.0,asq(1),ruh,rvh,rmh,rho,q3d(ib,jb,kb,1))
           call pdefq( qsmall,asq(2),ruh,rvh,rmh,rho,q3d(ib,jb,kb,2))
           call pdefq( qsmall,asq(3),ruh,rvh,rmh,rho,q3d(ib,jb,kb,3))
-          call k_fallout(rho,q3d(ib,jb,kb,3),qten(ib,jb,kb,3))
+          call pdefq( qsmall,asq(4),ruh,rvh,rmh,rho,q3d(ib,jb,kb,4))
+          call k_fallout(rho,q3d(ib,jb,kb,3),qten(ib,jb,kb,3),dum1(ib,jb,kb))
+          call k_fallout_snow(rho,q3d(ib,jb,kb,4),qten(ib,jb,kb,4),dum1(ib,jb,kb))
           call geterain(dt,cpl,lv1,qbudget(7),ruh,rvh,dum1,dum3,q3d(ib,jb,kb,3),qten(ib,jb,kb,3))
           if(efall.ge.1)then
             call getcvm(dum2,q3d)
@@ -209,9 +211,11 @@
           endif
           call fallout(dt,qbudget(6),ruh,rvh,zh,mh,mf,rain,prate,dum3,rho,   &
                        q3d(ib,jb,kb,3),qten(ib,jb,kb,3))
+          call fallout_snow(dt,ruh,rvh,zh,mh,mf,dum3,rho,   &
+                       q3d(ib,jb,kb,4),qten(ib,jb,kb,4))
           call kessler(dt,qbudget(3),qbudget(4),qbudget(5),ruh,rvh,rmh,pi0,th0,dum1,   &
                        rho,dum3,pp3d,th3d,prs,                            &
-                       q3d(ib,jb,kb,nqv),q3d(ib,jb,kb,2),q3d(ib,jb,kb,3))
+                       q3d(ib,jb,kb,nqv),q3d(ib,jb,kb,2),q3d(ib,jb,kb,3),q3d(ib,jb,kb,4))
           call satadj(4,dt,qbudget(1),qbudget(2),ruh,rvh,rmh,pi0,th0,   &
                       rho,dum3,pp3d,prs,th3d,q3d)
 
