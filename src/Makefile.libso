@@ -135,7 +135,7 @@ SRC   = constants.F \
 	base.F \
 	bc.F \
 	param.F \
-	module_cm1_vars.F\
+	module_cm1_vars.F module_ised.F\
 	cm1.py.F \
 	cm1libs.F \
 	comm.F \
@@ -224,7 +224,7 @@ all : cm1
 
 cm1 :			$(OBJS)
 	$(AR) onefile.F $(SRC) 
-	gfortran -shared -o cm1.so $(OBJS) $(OUTPUTLIB) $(LINKOPTS) src-simple-mp/libmorisson.so -lgfortran -lgomp
+	gfortran -shared -o cm1.so $(OBJS) $(OUTPUTLIB) $(LINKOPTS) fdeep_wrapper.o src-simple-mp/libmorisson.so -lgfortran -lgomp -lstdc++
 	mv onefile.F ../run
 
 .F.o:

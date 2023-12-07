@@ -47,11 +47,12 @@ end subroutine latent_heat_k
       double precision :: dum
       double precision, dimension(nk) :: bud1,bud2,bud3
       real :: t1,xxlv,xxls,cpm, XLF
+      real :: v1,v2,v3,v4,o1,o2
 
 !-------------------------------------------------------------------
 
 !$omp parallel do default(shared)              &
-!$omp private(i,j,k,qvnew,qcnew,qrnew,ar,cr,esl,qvs,er,term1,cpml,cvml,rm,tem)
+!$omp private(i,j,k,qvnew,qcnew,qrnew,ar,cr,esl,qvs,er,term1,cpml,cvml,rm,tem,v1,v2,v3,v4,o1,o2,t1,xxlv,xxls,cpm, XLF)
       do k=1,nk
       bud1(k)=0.0d0
       bud2(k)=0.0d0
@@ -138,18 +139,33 @@ end subroutine latent_heat_k
         qr3d(i,j,k)=qrnew
         t1=(th0(i,j,k)+th3d(i,j,k))*(pi0(i,j,k)+pp3d(i,j,k))
         call latent_heat_k(xxlv,xxls,cpm,t1,qv3d(i,j,k))
+        v1=(t1-273.15)/30.
+        v2=(pi0(i,j,k)+pp3d(i,j,k))/1e5
+        v3=qv3d(i,j,k)/4e-3
+        v4=(qc3d(i,j,k)+qr3d(i,j,k)+qs3d(i,j,k))/1e-3
+        if(qr3d(i,j,k)>0.0001.or.qs3d(i,j,k)>0.0001) then
+          call mp_model(v1,v2,v3,v4,o1,o2)
+        else
+          if (t1<273.15) then
+            o1=0.0
+          else
+            o1=1.0
+          endif
+        endif
+        if(o1<0) o1=0
+        if(o1>1) o1=1.0
         if((th0(i,j,k)+th3d(i,j,k))*(pi0(i,j,k)+pp3d(i,j,k))<273.15) then
           if(qr3d(i,j,k)>0.0001) then
-            th3d(i,j,k)=th3d(i,j,k)+(xxlv-xxls)*(qr3d(i,j,k)-0.0001)/(cpm)*(pi0(i,j,k)+pp3d(i,j,k))
-            qs3d(i,j,k)=qs3d(i,j,k)+qr3d(i,j,k)-0.0001
-            qr3d(i,j,k)=0.0001
+            th3d(i,j,k)=th3d(i,j,k)+(xxlv-xxls)*(1-o1)*qr3d(i,j,k)/(cpm)*(pi0(i,j,k)+pp3d(i,j,k))
+            qs3d(i,j,k)=qs3d(i,j,k)+qr3d(i,j,k)*(1-o1)
+            qr3d(i,j,k)=qr3d(i,j,k)*o1
           endif
         endif
         if((th0(i,j,k)+th3d(i,j,k))*(pi0(i,j,k)+pp3d(i,j,k))>=273.15) then
           if (qs3d(i,j,k)>0.) then
-            th3d(i,j,k)=th3d(i,j,k)-(xxlv-xxls)*(qs3d(i,j,k))/(cpm)*(pi0(i,j,k)+pp3d(i,j,k))
-            qr3d(i,j,k)=qr3d(i,j,k)+qs3d(i,j,k)
-            qs3d(i,j,k)=0.0
+            th3d(i,j,k)=th3d(i,j,k)-(xxlv-xxls)*(1-o1)*qs3d(i,j,k)/(cpm)*(pi0(i,j,k)+pp3d(i,j,k))
+            qr3d(i,j,k)=qr3d(i,j,k)+qs3d(i,j,k)*(1-o1)
+            qs3d(i,j,k)=qs3d(i,j,k)*o1
           endif
         endif
       enddo
